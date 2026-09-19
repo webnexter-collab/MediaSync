@@ -65,3 +65,41 @@ export async function nextNumber(
   const seq = String(row.last).padStart(row.padding ?? 4, "0");
   return `${args.prefix}-${year}-${seq}`;
 }
+
+/**
+ * Booking Order number in Mindset's format: BO-MS-1001 (no year, sequence
+ * starting at 1001). Run inside the insert transaction, like nextNumber.
+ */
+export async function nextBookingOrderNumber(
+  tx: Parameters<Parameters<DB["transaction"]>[0]>[0] | DB,
+  companyId: number,
+  prefix = "BO-MS",
+): Promise<string> {
+  await tx
+    .insert(numberSequences)
+    .values({
+      companyId,
+      branchId: null,
+      documentType: "booking_order",
+      year: 0, // BO numbering is not year-scoped
+      prefix,
+      lastNumber: 0,
+      padding: 0,
+    })
+    .onConflictDoNothing();
+
+  const [row] = await tx
+    .update(numberSequences)
+    .set({ lastNumber: sql`${numberSequences.lastNumber} + 1` })
+    .where(
+      and(
+        eq(numberSequences.companyId, companyId),
+        sql`${numberSequences.branchId} is null`,
+        eq(numberSequences.documentType, "booking_order"),
+        eq(numberSequences.year, 0),
+      ),
+    )
+    .returning({ last: numberSequences.lastNumber });
+
+  return `${prefix}-${1000 + row.last}`;
+}

@@ -101,7 +101,22 @@ export const accountTypeEnum = pgEnum("account_type", [
   "buying_house",
 ]);
 
-export const mediaTypeEnum = pgEnum("media_type", ["print", "digital", "radio"]);
+export const mediaTypeEnum = pgEnum("media_type", [
+  "print",
+  "digital",
+  "radio",
+  "tv",
+  "website",
+]);
+
+// Lifecycle of a Media Booking Order.
+export const bookingOrderStatusEnum = pgEnum("booking_order_status", [
+  "draft",
+  "sent",
+  "confirmed",
+  "cancelled",
+  "invoiced",
+]);
 
 /* ----------------------------------------------------------------------------
  * COMPANY / TENANT  (supports multiple FAB entities on one install)
@@ -604,5 +619,92 @@ export const taxRules = pgTable(
   },
   (t) => ({
     taxRuleLookupIdx: index("tax_rule_lookup_idx").on(t.companyId, t.country, t.category),
+  }),
+);
+
+/* ============================================================================
+ * MEDIA BOOKING ORDER  (BO-MS-####) — the central sell/buy document.
+ *   Money columns store integer MINOR UNITS of the BO's own currency
+ *   (2-decimal currencies: 1 unit = 100 minor). Totals are computed per line
+ *   then summed (see src/lib/booking-order.ts) and stored for reporting speed.
+ * ========================================================================== */
+
+export const bookingOrders = pgTable(
+  "booking_orders",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    number: varchar("number", { length: 40 }).notNull(), // BO-MS-1001
+    status: bookingOrderStatusEnum("status").default("draft").notNull(),
+
+    // "To" — the publisher/media the space is booked with.
+    publisherVendorId: integer("publisher_vendor_id").references(() => suppliers.id),
+    toName: varchar("to_name", { length: 200 }),
+
+    // The buyer chain — free-text so both agency and direct-advertiser BOs work,
+    // with an optional CRM link for reporting.
+    accountId: integer("account_id").references(() => customers.id),
+    advertiser: varchar("advertiser", { length: 200 }),
+    agency: varchar("agency", { length: 200 }),
+    client: varchar("client", { length: 200 }),
+    brand: varchar("brand", { length: 200 }),
+    campaign: varchar("campaign", { length: 200 }),
+    medium: varchar("medium", { length: 120 }),
+
+    currency: varchar("currency", { length: 3 }).default("AED").notNull(),
+    exchangeRate: numeric("exchange_rate", { precision: 18, scale: 8 }).default("1").notNull(),
+    issueDate: date("issue_date").notNull(),
+    paymentTerms: varchar("payment_terms", { length: 200 }),
+
+    agencyDiscountPct: numeric("agency_discount_pct", { precision: 5, scale: 2 }).default("0").notNull(),
+    vatRatePct: numeric("vat_rate_pct", { precision: 5, scale: 2 }).default("5").notNull(),
+
+    // Totals (minor units of `currency`)
+    totalGrossFils: bigint("total_gross_fils", { mode: "number" }).default(0).notNull(),
+    lineDiscountFils: bigint("line_discount_fils", { mode: "number" }).default(0).notNull(),
+    agencyDiscountFils: bigint("agency_discount_fils", { mode: "number" }).default(0).notNull(),
+    totalNetFils: bigint("total_net_fils", { mode: "number" }).default(0).notNull(),
+    vatFils: bigint("vat_fils", { mode: "number" }).default(0).notNull(),
+    grandTotalFils: bigint("grand_total_fils", { mode: "number" }).default(0).notNull(),
+
+    notes: text("notes"),
+    terms: text("terms"), // null = use default T&C content
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    boNumberUq: uniqueIndex("bo_number_uq").on(t.companyId, t.number),
+    boStatusIdx: index("bo_status_idx").on(t.companyId, t.status, t.issueDate),
+  }),
+);
+
+export const bookingOrderLines = pgTable(
+  "booking_order_lines",
+  {
+    id: serial("id").primaryKey(),
+    bookingOrderId: integer("booking_order_id")
+      .notNull()
+      .references(() => bookingOrders.id, { onDelete: "cascade" }),
+    lineNo: integer("line_no").notNull(),
+    mediaType: mediaTypeEnum("media_type").default("digital").notNull(),
+    channelId: integer("channel_id").references(() => mediaChannels.id),
+    platform: varchar("platform", { length: 200 }), // "The National"
+    particulars: text("particulars"), // "Advertorial"
+    brandingDetails: text("branding_details"),
+    period: text("period"), // "3 days home page + …"
+    quantity: numeric("quantity", { precision: 12, scale: 2 }).default("1").notNull(),
+    uom: varchar("uom", { length: 40 }), // Article, Spot, Insertion…
+    unitGrossFils: bigint("unit_gross_fils", { mode: "number" }).default(0).notNull(),
+    discountPct: numeric("discount_pct", { precision: 5, scale: 2 }).default("0").notNull(),
+    unitNetFils: bigint("unit_net_fils", { mode: "number" }).default(0).notNull(),
+    lineGrossFils: bigint("line_gross_fils", { mode: "number" }).default(0).notNull(),
+    lineNetFils: bigint("line_net_fils", { mode: "number" }).default(0).notNull(),
+    annexure: text("annexure"), // JSON: per-day schedule (added later)
+  },
+  (t) => ({
+    boLineIdx: index("bo_line_idx").on(t.bookingOrderId, t.lineNo),
   }),
 );

@@ -36,6 +36,13 @@
       "when": 1789805026479,
       "tag": "0004_mediasync_crm_currency_tax",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789809010787,
+      "tag": "0005_booking_orders",
+      "breakpoints": true
     }
   ]
 }

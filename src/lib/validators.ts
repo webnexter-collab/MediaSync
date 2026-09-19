@@ -3,8 +3,8 @@ import { z } from "zod";
 const optionalStr = z
   .string()
   .trim()
-  .optional()
-  .transform((v) => (v === "" ? undefined : v));
+  .nullish()
+  .transform((v) => (v == null || v === "" ? undefined : v));
 
 // UAE TRN is 15 digits when present.
 const trn = z
@@ -232,7 +232,7 @@ export type BankAccountInput = z.infer<typeof bankAccountSchema>;
 
 /* ---------------- Media Channels ---------------- */
 
-export const mediaTypeValues = ["print", "digital", "radio"] as const;
+export const mediaTypeValues = ["print", "digital", "radio", "tv", "website"] as const;
 
 export const mediaChannelSchema = z.object({
   mediaType: z.enum(mediaTypeValues).default("print"),
@@ -270,3 +270,44 @@ export const currencySchema = z.object({
   isActive: z.coerce.boolean().default(true),
 });
 export type CurrencyInput = z.infer<typeof currencySchema>;
+
+/* ---------------- Media Booking Order ---------------- */
+
+const nullableId = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+  z.number().int().positive().nullable(),
+);
+
+export const bookingOrderLineSchema = z.object({
+  mediaType: z.enum(mediaTypeValues).default("digital"),
+  channelId: nullableId,
+  platform: optionalStr,
+  particulars: optionalStr,
+  brandingDetails: optionalStr,
+  period: optionalStr,
+  quantity: z.coerce.number().positive("Qty must be > 0").default(1),
+  uom: optionalStr,
+  unitGross: z.coerce.number().min(0).default(0), // major units of the BO currency
+  discountPct: z.coerce.number().min(0).max(100).default(0),
+});
+
+export const bookingOrderSchema = z.object({
+  toName: optionalStr,
+  publisherVendorId: nullableId,
+  accountId: nullableId,
+  advertiser: optionalStr,
+  agency: optionalStr,
+  client: optionalStr,
+  brand: optionalStr,
+  campaign: optionalStr,
+  medium: optionalStr,
+  currency: z.string().trim().min(3).max(3).default("AED"),
+  issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  paymentTerms: optionalStr,
+  agencyDiscountPct: z.coerce.number().min(0).max(100).default(0),
+  vatRatePct: z.coerce.number().min(0).max(100).default(5),
+  notes: optionalStr,
+  terms: optionalStr,
+  lines: z.array(bookingOrderLineSchema).min(1, "Add at least one line"),
+});
+export type BookingOrderInput = z.infer<typeof bookingOrderSchema>;
