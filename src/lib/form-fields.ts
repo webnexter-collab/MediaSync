@@ -4,12 +4,36 @@ import { toAed } from "./money";
 type CustomerRow = typeof import("@/db/schema").customers.$inferSelect;
 type SupplierRow = typeof import("@/db/schema").suppliers.$inferSelect;
 
-export function customerFields(row?: CustomerRow, suggestedCode?: string): FieldDef[] {
+const ACCOUNT_TYPE_OPTIONS = [
+  { value: "direct_client", label: "Direct client" },
+  { value: "agency", label: "Agency" },
+  { value: "buying_house", label: "Buying house" },
+];
+
+export type AccountFormOptions = {
+  agencies?: { value: string; label: string }[];
+  currencies?: { value: string; label: string }[];
+};
+
+export function customerFields(
+  row?: CustomerRow,
+  suggestedCode?: string,
+  opts: AccountFormOptions = {},
+): FieldDef[] {
+  const agencyOptions = [
+    { value: "", label: "— None (direct) —" },
+    ...(opts.agencies ?? []),
+  ];
+  const currencyOptions = opts.currencies ?? [{ value: "AED", label: "AED" }];
   return [
-    { name: "code", label: "Customer code", required: true, half: true, placeholder: "CUST-0001", defaultValue: row?.code ?? suggestedCode },
-    { name: "name", label: "Name", required: true, half: true, defaultValue: row?.name },
+    { name: "code", label: "Account code", required: true, half: true, placeholder: "ACC-0001", defaultValue: row?.code ?? suggestedCode },
+    { name: "name", label: "Account name", required: true, half: true, defaultValue: row?.name },
+    { name: "accountType", label: "Account type", type: "select", half: true, options: ACCOUNT_TYPE_OPTIONS, defaultValue: row?.accountType ?? "direct_client" },
+    { name: "parentAgencyId", label: "Parent agency", type: "select", half: true, options: agencyOptions, defaultValue: row?.parentAgencyId != null ? String(row.parentAgencyId) : "", hint: "For clients booked through an agency" },
+    { name: "agencyCommissionPct", label: "Agency commission (%)", type: "number", half: true, defaultValue: row?.agencyCommissionPct ?? 0, hint: "Applied on agency/buying-house proposals" },
+    { name: "currency", label: "Default currency", type: "select", half: true, options: currencyOptions, defaultValue: row?.currency ?? "AED" },
     { name: "trn", label: "TRN", half: true, placeholder: "15 digits", defaultValue: row?.trn ?? undefined },
-    { name: "contactPerson", label: "Contact person", half: true, defaultValue: row?.contactPerson ?? undefined },
+    { name: "contactPerson", label: "Primary contact", half: true, defaultValue: row?.contactPerson ?? undefined },
     { name: "email", label: "Email", type: "email", half: true, defaultValue: row?.email ?? undefined },
     { name: "phone", label: "Phone", half: true, defaultValue: row?.phone ?? undefined },
     { name: "paymentTermsDays", label: "Payment terms (days)", type: "number", half: true, defaultValue: row?.paymentTermsDays ?? 0 },

@@ -4,12 +4,12 @@ import { customers, suppliers, items } from "@/db/schema";
 
 const COMPANY_ID = 1;
 
-/** Next code like CUST-0004 based on the highest existing numeric suffix (gap-tolerant, collision-safe). */
+/** Next code like ACC-0004 based on the highest existing numeric suffix (gap-tolerant, collision-safe). */
 export async function nextCustomerCode(): Promise<string> {
-  return nextCode(customers, "CUST");
+  return nextCode(customers, "ACC");
 }
 export async function nextSupplierCode(): Promise<string> {
-  return nextCode(suppliers, "SUPP");
+  return nextCode(suppliers, "VEN");
 }
 export async function nextItemCode(): Promise<string> {
   return nextCode(items, "ITM");

@@ -5,6 +5,7 @@ import { customers } from "@/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { MasterForm } from "@/components/master-form";
 import { customerFields } from "@/lib/form-fields";
+import { getAccountFormOptions } from "@/lib/crm-options";
 import { updateCustomer } from "@/actions/customers";
 
 export const dynamic = "force-dynamic";
@@ -28,17 +29,18 @@ export default async function EditCustomer({
 
   if (!row) notFound();
 
+  const options = await getAccountFormOptions(customerId);
   const action = updateCustomer.bind(null, customerId);
 
   return (
     <div>
-      <PageHeader title={row.name} subtitle={`Customer · ${row.code}`} />
+      <PageHeader title={row.name} subtitle={`Account · ${row.code}`} />
       <Card>
         <div className="px-6 py-6">
           <MasterForm
             action={action}
-            fields={customerFields(row)}
-            submitLabel="Update customer"
+            fields={customerFields(row, undefined, options)}
+            submitLabel="Update account"
             cancelHref="/customers"
           />
         </div>

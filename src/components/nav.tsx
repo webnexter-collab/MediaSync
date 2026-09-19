@@ -25,9 +25,9 @@ const groups: Group[] = [
     { href: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
     { href: "/payments", label: "Payments", icon: Banknote },
   ]},
-  { title: "Masters", items: [
-    { href: "/customers", label: "Customers", icon: Users },
-    { href: "/suppliers", label: "Suppliers", icon: Building2 },
+  { title: "CRM", items: [
+    { href: "/customers", label: "Accounts", icon: Users },
+    { href: "/suppliers", label: "Vendors", icon: Building2 },
     { href: "/items", label: "Items", icon: Package },
     { href: "/bank-accounts", label: "Bank & Cash", icon: Landmark },
   ]},

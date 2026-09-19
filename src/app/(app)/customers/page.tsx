@@ -9,6 +9,12 @@ export const dynamic = "force-dynamic";
 
 const COMPANY_ID = 1;
 
+const ACCOUNT_TYPE_LABEL: Record<string, string> = {
+  direct_client: "Direct client",
+  agency: "Agency",
+  buying_house: "Buying house",
+};
+
 export default async function CustomersPage({
   searchParams,
 }: {
@@ -38,9 +44,9 @@ export default async function CustomersPage({
   return (
     <div>
       <PageHeader
-        title="Customers"
-        subtitle="Your customer directory with TRN, terms and balances."
-        action={<LinkButton href="/customers/new">New customer</LinkButton>}
+        title="Accounts"
+        subtitle="Clients, agencies and buying houses — your CRM directory."
+        action={<LinkButton href="/customers/new">New account</LinkButton>}
       />
 
       <form className="mb-4" action="/customers">
@@ -60,9 +66,9 @@ export default async function CustomersPage({
           />
         ) : rows.length === 0 ? (
           <EmptyState
-            title={q ? "No matches" : "No customers yet"}
-            hint={q ? "Try a different search." : "Add your first customer to get started."}
-            action={!q ? <LinkButton href="/customers/new">New customer</LinkButton> : undefined}
+            title={q ? "No matches" : "No accounts yet"}
+            hint={q ? "Try a different search." : "Add your first account to get started."}
+            action={!q ? <LinkButton href="/customers/new">New account</LinkButton> : undefined}
           />
         ) : (
           <table className="w-full text-sm">
@@ -70,7 +76,7 @@ export default async function CustomersPage({
               <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
                 <th className="px-5 py-3 font-medium">Code</th>
                 <th className="px-5 py-3 font-medium">Name</th>
-                <th className="px-5 py-3 font-medium">TRN</th>
+                <th className="px-5 py-3 font-medium">Type</th>
                 <th className="px-5 py-3 font-medium">Terms</th>
                 <th className="px-5 py-3 text-right font-medium">Credit limit</th>
                 <th className="px-5 py-3 font-medium">Status</th>
@@ -91,12 +97,16 @@ export default async function CustomersPage({
                     </Link>
                   </td>
                   <td className="px-5 py-3">{c.name}</td>
-                  <td className="px-5 py-3 tnum text-muted">{c.trn ?? "—"}</td>
+                  <td className="px-5 py-3">
+                    <Badge tone={c.accountType === "direct_client" ? "muted" : "neutral"}>
+                      {ACCOUNT_TYPE_LABEL[c.accountType] ?? c.accountType}
+                    </Badge>
+                  </td>
                   <td className="px-5 py-3 tnum text-muted">
                     {c.paymentTermsDays ? `${c.paymentTermsDays}d` : "—"}
                   </td>
                   <td className="px-5 py-3 text-right tnum">
-                    {formatFils(c.creditLimitFils ?? 0, { withSymbol: false })}
+                    {formatFils(c.creditLimitFils ?? 0, { withSymbol: false, currency: c.currency })}
                   </td>
                   <td className="px-5 py-3">
                     {c.isActive ? (

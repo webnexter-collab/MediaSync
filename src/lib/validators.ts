@@ -16,9 +16,17 @@ const trn = z
     message: "TRN must be 15 digits",
   });
 
+export const accountTypeValues = ["direct_client", "agency", "buying_house"] as const;
+
 export const customerSchema = z.object({
   code: z.string().trim().min(1, "Code is required").max(30),
   name: z.string().trim().min(1, "Name is required").max(200),
+  accountType: z.enum(accountTypeValues).default("direct_client"),
+  parentAgencyId: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().int().positive().nullable(),
+  ),
+  agencyCommissionPct: z.coerce.number().min(0).max(100).default(0),
   trn,
   contactPerson: optionalStr,
   email: z
