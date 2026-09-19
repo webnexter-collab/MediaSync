@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { customers } from "@/db/schema";
+import { customers, contacts } from "@/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { MasterForm } from "@/components/master-form";
+import { ContactsSection } from "@/components/contacts-section";
 import { customerFields } from "@/lib/form-fields";
 import { getAccountFormOptions } from "@/lib/crm-options";
 import { updateCustomer } from "@/actions/customers";
@@ -29,7 +30,14 @@ export default async function EditCustomer({
 
   if (!row) notFound();
 
-  const options = await getAccountFormOptions(customerId);
+  const [options, contactRows] = await Promise.all([
+    getAccountFormOptions(customerId),
+    db
+      .select()
+      .from(contacts)
+      .where(and(eq(contacts.customerId, customerId), eq(contacts.companyId, COMPANY_ID)))
+      .orderBy(desc(contacts.isPrimary), asc(contacts.name)),
+  ]);
   const action = updateCustomer.bind(null, customerId);
 
   return (
@@ -43,6 +51,7 @@ export default async function EditCustomer({
             submitLabel="Update account"
             cancelHref="/customers"
           />
+          <ContactsSection customerId={customerId} contacts={contactRows} />
         </div>
       </Card>
     </div>

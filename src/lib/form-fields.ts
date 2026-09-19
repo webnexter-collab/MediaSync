@@ -87,6 +87,53 @@ export function itemFields(row?: ItemRow): FieldDef[] {
   ];
 }
 
+const MEDIA_TYPE_OPTIONS = [
+  { value: "print", label: "Print" },
+  { value: "digital", label: "Digital" },
+  { value: "radio", label: "Radio" },
+];
+
+type MediaChannelRow = typeof import("@/db/schema").mediaChannels.$inferSelect;
+
+export function mediaChannelFields(
+  row?: MediaChannelRow,
+  vendors: { value: string; label: string }[] = [],
+): FieldDef[] {
+  return [
+    { name: "name", label: "Channel name", required: true, half: true, placeholder: "Gulf News — Main Edition", defaultValue: row?.name },
+    { name: "code", label: "Code", required: true, half: true, placeholder: "PR-GN-MAIN", defaultValue: row?.code },
+    { name: "mediaType", label: "Media type", type: "select", half: true, options: MEDIA_TYPE_OPTIONS, defaultValue: row?.mediaType ?? "print" },
+    { name: "vendorId", label: "Source vendor", type: "select", half: true, options: [{ value: "", label: "— None —" }, ...vendors], defaultValue: row?.vendorId != null ? String(row.vendorId) : "", hint: "Publisher / station / network" },
+    { name: "notes", label: "Notes", type: "textarea", defaultValue: row?.notes ?? undefined },
+    { name: "isActive", label: "Active", type: "toggle", defaultValue: row ? row.isActive : true },
+  ];
+}
+
+export function taxRuleFields(row?: typeof import("@/db/schema").taxRules.$inferSelect): FieldDef[] {
+  return [
+    { name: "name", label: "Rule name", required: true, half: true, placeholder: "UAE VAT 5%", defaultValue: row?.name },
+    { name: "country", label: "Country (ISO-2)", required: true, half: true, placeholder: "AE", defaultValue: row?.country ?? "AE" },
+    { name: "category", label: "Tax category", type: "select", half: true, options: TAX_OPTIONS, defaultValue: row?.category ?? "standard" },
+    { name: "ratePct", label: "Rate (%)", type: "number", half: true, defaultValue: row?.ratePct ?? 0 },
+    { name: "isDefault", label: "Default rule", type: "toggle", defaultValue: row ? row.isDefault : false },
+    { name: "isActive", label: "Active", type: "toggle", defaultValue: row ? row.isActive : true },
+  ];
+}
+
+export function currencyFields(
+  row?: typeof import("@/db/schema").currencies.$inferSelect,
+  latestRate?: string | number,
+): FieldDef[] {
+  return [
+    { name: "code", label: "Code (ISO-3)", required: true, half: true, placeholder: "USD", defaultValue: row?.code, hint: row ? "Cannot be changed" : undefined },
+    { name: "name", label: "Name", required: true, half: true, placeholder: "US Dollar", defaultValue: row?.name },
+    { name: "symbol", label: "Symbol", half: true, placeholder: "$", defaultValue: row?.symbol ?? undefined },
+    { name: "decimals", label: "Decimals", type: "number", half: true, defaultValue: row?.decimals ?? 2 },
+    { name: "rateToBase", label: "Rate to base (AED)", type: "number", half: true, defaultValue: latestRate ?? 1, hint: "1 unit = this many AED" },
+    { name: "isActive", label: "Active", type: "toggle", defaultValue: row ? row.isActive : true },
+  ];
+}
+
 const ACCT_TYPE_OPTIONS = [
   { value: "bank", label: "Bank account" },
   { value: "cash", label: "Cash / petty cash" },

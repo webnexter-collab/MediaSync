@@ -75,6 +75,24 @@ export const supplierSchema = z.object({
 export type CustomerInput = z.infer<typeof customerSchema>;
 export type SupplierInput = z.infer<typeof supplierSchema>;
 
+/* ---------------- Contacts (stakeholders under an account) ---------------- */
+
+export const contactSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(160),
+  role: optionalStr,
+  email: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v === "" ? undefined : v))
+    .refine((v) => v === undefined || z.string().email().safeParse(v).success, {
+      message: "Invalid email",
+    }),
+  phone: optionalStr,
+  isPrimary: z.coerce.boolean().default(false),
+});
+export type ContactInput = z.infer<typeof contactSchema>;
+
 export type FormState = {
   ok: boolean;
   message?: string;
@@ -211,3 +229,44 @@ export const bankAccountSchema = z.object({
   isActive: z.coerce.boolean().default(true),
 });
 export type BankAccountInput = z.infer<typeof bankAccountSchema>;
+
+/* ---------------- Media Channels ---------------- */
+
+export const mediaTypeValues = ["print", "digital", "radio"] as const;
+
+export const mediaChannelSchema = z.object({
+  mediaType: z.enum(mediaTypeValues).default("print"),
+  name: z.string().trim().min(1, "Name is required").max(160),
+  code: z.string().trim().min(1, "Code is required").max(30),
+  vendorId: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().int().positive().nullable(),
+  ),
+  notes: optionalStr,
+  isActive: z.coerce.boolean().default(true),
+});
+export type MediaChannelInput = z.infer<typeof mediaChannelSchema>;
+
+/* ---------------- Tax Rules ---------------- */
+
+export const taxRuleSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(120),
+  country: z.string().trim().min(2).max(2).default("AE"),
+  category: z.enum(taxCategoryValues).default("standard"),
+  ratePct: z.coerce.number().min(0).max(100).default(0),
+  isDefault: z.coerce.boolean().default(false),
+  isActive: z.coerce.boolean().default(true),
+});
+export type TaxRuleInput = z.infer<typeof taxRuleSchema>;
+
+/* ---------------- Currencies (+ FX rate to base) ---------------- */
+
+export const currencySchema = z.object({
+  code: z.string().trim().min(3, "3-letter code").max(3).toUpperCase(),
+  name: z.string().trim().min(1, "Name is required").max(60),
+  symbol: optionalStr,
+  decimals: z.coerce.number().int().min(0).max(4).default(2),
+  rateToBase: z.coerce.number().positive("Rate must be > 0").default(1),
+  isActive: z.coerce.boolean().default(true),
+});
+export type CurrencyInput = z.infer<typeof currencySchema>;

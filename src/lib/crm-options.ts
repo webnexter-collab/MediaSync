@@ -1,10 +1,24 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, currencies } from "@/db/schema";
+import { customers, currencies, suppliers } from "@/db/schema";
 import type { AccountFormOptions } from "@/lib/form-fields";
 
 const COMPANY_ID = 1;
+
+/** Active vendors (suppliers) as {value,label} options for the channel form. */
+export async function getVendorOptions(): Promise<{ value: string; label: string }[]> {
+  try {
+    const rows = await db
+      .select({ id: suppliers.id, name: suppliers.name, code: suppliers.code })
+      .from(suppliers)
+      .where(and(eq(suppliers.companyId, COMPANY_ID), eq(suppliers.isActive, true)))
+      .orderBy(asc(suppliers.name));
+    return rows.map((v) => ({ value: String(v.id), label: `${v.name} (${v.code})` }));
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Options for the Account form: existing agencies/buying-houses (as possible

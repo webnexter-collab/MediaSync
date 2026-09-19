@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, FileText, ReceiptText, Truck, HandCoins, ShoppingCart,
   Banknote, Users, Building2, Package, Landmark, TrendingUp, TrendingDown,
-  FileUser, FileBox, ShieldCheck, LogOut, Settings, X, type LucideIcon,
+  FileUser, FileBox, ShieldCheck, LogOut, Settings, X, Megaphone, Coins,
+  Percent, type LucideIcon,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import type { Role } from "@/lib/session";
@@ -28,6 +29,7 @@ const groups: Group[] = [
   { title: "CRM", items: [
     { href: "/customers", label: "Accounts", icon: Users },
     { href: "/suppliers", label: "Vendors", icon: Building2 },
+    { href: "/media-channels", label: "Media Channels", icon: Megaphone },
     { href: "/items", label: "Items", icon: Package },
     { href: "/bank-accounts", label: "Bank & Cash", icon: Landmark },
   ]},
@@ -38,6 +40,8 @@ const groups: Group[] = [
     { href: "/reports/supplier-statement", label: "Supplier Statement", icon: FileBox },
   ]},
   { title: "Administration", adminOnly: true, items: [
+    { href: "/currencies", label: "Currencies & FX", icon: Coins },
+    { href: "/tax-rules", label: "Tax Rules", icon: Percent },
     { href: "/admin/users", label: "Users", icon: ShieldCheck },
   ]},
 ];
