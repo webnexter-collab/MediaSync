@@ -12,6 +12,15 @@ export const dynamic = "force-dynamic";
 const COMPANY_ID = 1;
 const MEDIA_LABEL: Record<string, string> = { print: "Print", digital: "Digital", radio: "Radio", tv: "TV", website: "Website" };
 
+function parseDays(json: string | null): number[] {
+  try {
+    const a = JSON.parse(json ?? "[]");
+    return Array.isArray(a) ? a.filter((n): n is number => typeof n === "number") : [];
+  } catch {
+    return [];
+  }
+}
+
 export default async function BookingOrderView({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const boId = Number(id);
@@ -84,7 +93,7 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
                 <tr key={l.id} className="border-b border-line align-top last:border-0">
                   <td className="px-4 py-3 tnum text-muted">{String(i + 1).padStart(2, "0")}</td>
                   <td className="px-4 py-3"><div className="font-medium text-ink">{l.platform || "—"}</div><Badge tone="neutral">{MEDIA_LABEL[l.mediaType] ?? l.mediaType}</Badge></td>
-                  <td className="px-4 py-3"><div className="font-medium text-ink">{l.particulars || "—"}</div>{l.brandingDetails && <div className="mt-1 max-w-md text-xs text-muted">{l.brandingDetails}</div>}{l.period && <div className="mt-1 text-xs text-muted">{l.period}</div>}</td>
+                  <td className="px-4 py-3"><div className="font-medium text-ink">{l.particulars || "—"}</div>{l.brandingDetails && <div className="mt-1 max-w-md text-xs text-muted">{l.brandingDetails}</div>}{l.period && <div className="mt-1 text-xs text-muted">{l.period}</div>}{(() => { const d = parseDays(l.annexure); return d.length > 0 ? <div className="mt-1 text-xs text-muted">Schedule ({d.length}d): {d.join(", ")}</div> : null; })()}</td>
                   <td className="px-4 py-3 text-right tnum">{Number(l.quantity)}</td>
                   <td className="px-4 py-3">{l.uom || "—"}</td>
                   <td className="px-4 py-3 text-right tnum">{formatFils(l.unitGrossFils, { withSymbol: false })}</td>

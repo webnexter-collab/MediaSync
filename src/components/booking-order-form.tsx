@@ -25,7 +25,10 @@ type Line = {
   uom: string;
   unitGross: string;
   discountPct: string;
+  days: number[];
 };
+
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 export type BoDefaults = {
   toName?: string;
@@ -53,6 +56,7 @@ const MEDIA_LABEL: Record<string, string> = {
 const emptyLine = (): Line => ({
   mediaType: "digital", channelId: null, platform: "", particulars: "",
   brandingDetails: "", period: "", quantity: "1", uom: "", unitGross: "0", discountPct: "0",
+  days: [],
 });
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -101,6 +105,15 @@ export function BookingOrderForm({
 
   const setLine = (i: number, patch: Partial<Line>) =>
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+
+  const toggleDay = (i: number, d: number) =>
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i
+          ? { ...l, days: l.days.includes(d) ? l.days.filter((x) => x !== d) : [...l.days, d] }
+          : l,
+      ),
+    );
 
   const onPickChannel = (i: number, id: number | null) => {
     if (id === null) { setLine(i, { channelId: null }); return; }
@@ -231,6 +244,41 @@ export function BookingOrderForm({
         </table>
         <div className="border-t border-line px-3 py-2">
           <button type="button" onClick={() => setLines((p) => [...p, emptyLine()])} className="text-sm font-medium text-teal-ink hover:underline">+ Add line</button>
+        </div>
+      </div>
+
+      {/* Annexure — day 1–31 schedule per line */}
+      <div className="rounded-xl border border-line bg-surface p-5">
+        <div className="mb-1 flex items-baseline justify-between">
+          <h3 className="font-display text-base font-semibold text-ink">Schedule (Annexure)</h3>
+          <span className="text-xs text-muted">Click days each line runs</span>
+        </div>
+        <div className="space-y-4 overflow-x-auto">
+          {lines.map((l, i) => (
+            <div key={i} className="min-w-[640px] border-t border-line pt-3 first:border-0 first:pt-0">
+              <div className="mb-1.5 flex items-center justify-between">
+                <div className="truncate text-sm font-medium text-ink">
+                  Line {i + 1}{l.platform ? ` · ${l.platform}` : ""}{l.particulars ? ` — ${l.particulars}` : ""}
+                </div>
+                <div className="shrink-0 text-xs text-muted">{l.days.length} day{l.days.length === 1 ? "" : "s"}</div>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {DAYS.map((d) => {
+                  const on = l.days.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => toggleDay(i, d)}
+                      className={`tnum h-7 w-7 rounded-md border text-xs transition-colors ${on ? "border-ink bg-ink text-white" : "border-line-2 bg-surface text-muted hover:bg-bg"}`}
+                    >
+                      {d}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

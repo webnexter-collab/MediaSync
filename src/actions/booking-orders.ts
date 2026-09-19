@@ -69,6 +69,7 @@ function lineValues(boId: number, data: BookingOrderInput) {
       unitNetFils: r.unitNetFils,
       lineGrossFils: r.lineGrossFils,
       lineNetFils: r.lineNetFils,
+      annexure: JSON.stringify([...(l.days ?? [])].sort((a, b) => a - b)),
     };
   });
 }

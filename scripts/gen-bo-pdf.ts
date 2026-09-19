@@ -34,6 +34,7 @@ async function main() {
       mediaLabel: MEDIA_LABEL[l.mediaType] ?? l.mediaType, platform: l.platform, particulars: l.particulars,
       brandingDetails: l.brandingDetails, period: l.period, quantity: String(Number(l.quantity)), uom: l.uom,
       unitGrossFils: l.unitGrossFils, discountPct: String(l.discountPct), lineNetFils: l.lineNetFils,
+      days: (() => { try { const a = JSON.parse(l.annexure ?? "[]"); return Array.isArray(a) ? a.filter((n: unknown): n is number => typeof n === "number") : []; } catch { return []; } })(),
     })),
   };
   const buf = await renderBookingOrderPdf(data);

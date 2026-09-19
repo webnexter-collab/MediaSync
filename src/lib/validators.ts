@@ -289,6 +289,7 @@ export const bookingOrderLineSchema = z.object({
   uom: optionalStr,
   unitGross: z.coerce.number().min(0).default(0), // major units of the BO currency
   discountPct: z.coerce.number().min(0).max(100).default(0),
+  days: z.array(z.coerce.number().int().min(1).max(31)).default([]), // annexure schedule
 });
 
 export const bookingOrderSchema = z.object({

@@ -25,9 +25,11 @@ export type BookingOrderPdfData = {
     mediaLabel: string; platform?: string | null; particulars?: string | null;
     brandingDetails?: string | null; period?: string | null;
     quantity: string; uom?: string | null; unitGrossFils: number;
-    discountPct: string; lineNetFils: number;
+    discountPct: string; lineNetFils: number; days: number[];
   }[];
 };
+
+const DAY_NUMS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const s = StyleSheet.create({
   page: { fontSize: 9, color: SOFT, fontFamily: "Helvetica", paddingBottom: 44 },
@@ -75,14 +77,26 @@ const s = StyleSheet.create({
   grandV: { color: "#fff", fontSize: 13, fontFamily: "Helvetica-Bold" },
   foot: { position: "absolute", bottom: 18, left: 34, right: 34, borderTopWidth: 0.5, borderColor: LINE,
     paddingTop: 6, flexDirection: "row", justifyContent: "space-between" },
-  // T&C page
-  tcHead: { backgroundColor: INK, color: "#fff", paddingHorizontal: 34, paddingVertical: 16,
+  // T&C page (two-column, single page)
+  tcHead: { backgroundColor: INK, color: "#fff", paddingHorizontal: 34, paddingVertical: 14,
     flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  tcIntro: { paddingHorizontal: 34, paddingTop: 14, fontSize: 8.5, color: SOFT, fontStyle: "italic" },
-  tcWrap: { paddingHorizontal: 34, paddingTop: 8 },
-  tcSec: { marginBottom: 8 },
-  tcH: { fontSize: 9, color: INK, fontFamily: "Helvetica-Bold", marginBottom: 2 },
-  tcP: { fontSize: 7.5, color: SOFT, lineHeight: 1.5, marginBottom: 2 },
+  tcIntro: { paddingHorizontal: 34, paddingTop: 10, paddingBottom: 2, fontSize: 7, color: SOFT, fontStyle: "italic" },
+  tcCols: { paddingHorizontal: 30, paddingTop: 4, flexDirection: "row" },
+  tcCol: { width: "50%", paddingHorizontal: 4 },
+  tcSec: { marginBottom: 5 },
+  tcH: { fontSize: 7, color: INK, fontFamily: "Helvetica-Bold", marginBottom: 1 },
+  tcP: { fontSize: 5.8, color: SOFT, lineHeight: 1.3, marginBottom: 1 },
+  // Annexure page
+  anxHead: { backgroundColor: INK, color: "#fff", paddingHorizontal: 34, paddingVertical: 16,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  anxWrap: { paddingHorizontal: 18, paddingTop: 12 },
+  anxRow: { flexDirection: "row", alignItems: "stretch", borderBottomWidth: 0.5, borderColor: LINE },
+  anxHeadRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: INK, backgroundColor: "#f3f2ee" },
+  anxSl: { width: 16, fontSize: 6, textAlign: "center", paddingVertical: 3 },
+  anxPart: { width: 96, fontSize: 6.5, paddingVertical: 3, paddingRight: 3 },
+  anxDay: { width: 13, fontSize: 5, textAlign: "center", paddingVertical: 3, borderLeftWidth: 0.5, borderColor: LINE },
+  anxDayOn: { backgroundColor: INK, color: "#fff" },
+  anxTot: { width: 26, fontSize: 6, textAlign: "center", paddingVertical: 3, borderLeftWidth: 0.5, borderColor: INK, fontFamily: "Helvetica-Bold" },
 });
 
 function money(fils: number) { return formatFils(fils, { withSymbol: false }); }
@@ -99,6 +113,15 @@ function Doc({ data }: { data: BookingOrderPdfData }) {
     ["Brand", bo.brand],
     ["Campaign", bo.campaign],
   ];
+  // Balance the T&C sections across two columns by cumulative length.
+  const secLen = (sec: (typeof BOOKING_ORDER_TERMS)[number]) => sec.heading.length + sec.clauses.join(" ").length;
+  const tcTotal = BOOKING_ORDER_TERMS.reduce((n, sec) => n + secLen(sec), 0);
+  const tcLeft: typeof BOOKING_ORDER_TERMS = [];
+  const tcRight: typeof BOOKING_ORDER_TERMS = [];
+  let tcAcc = 0;
+  for (const sec of BOOKING_ORDER_TERMS) {
+    if (tcAcc < tcTotal / 2) { tcLeft.push(sec); tcAcc += secLen(sec); } else { tcRight.push(sec); }
+  }
   return (
     <Document title={`Booking Order ${bo.number}`}>
       {/* PAGE 1 — BO */}
@@ -192,7 +215,45 @@ function Doc({ data }: { data: BookingOrderPdfData }) {
         </View>
       </Page>
 
-      {/* PAGE 2 — TERMS & CONDITIONS */}
+      {/* PAGE 2 — ANNEXURE (day 1–31 schedule) */}
+      <Page size="A4" style={s.page}>
+        <View style={s.anxHead}>
+          <Image style={s.logo} src={MINDSET_LOGO_DATA_URI} />
+          <View>
+            <Text style={s.kicker}>Annexure — Schedule</Text>
+            <Text style={s.title}>Booking Schedule</Text>
+            <Text style={s.no}>{bo.number}</Text>
+          </View>
+        </View>
+        <View style={s.anxWrap}>
+          <View style={s.anxHeadRow}>
+            <Text style={s.anxSl}>#</Text>
+            <Text style={s.anxPart}>Particulars</Text>
+            {DAY_NUMS.map((d) => <Text key={d} style={s.anxDay}>{d}</Text>)}
+            <Text style={s.anxTot}>Tot</Text>
+          </View>
+          {lines.map((l, i) => (
+            <View key={i} style={s.anxRow} wrap={false}>
+              <Text style={s.anxSl}>{String(i + 1).padStart(2, "0")}</Text>
+              <Text style={s.anxPart}>{l.particulars || l.platform || "—"}</Text>
+              {DAY_NUMS.map((d) => {
+                const on = l.days.includes(d);
+                return <Text key={d} style={on ? [s.anxDay, s.anxDayOn] : s.anxDay}>{on ? "X" : ""}</Text>;
+              })}
+              <Text style={s.anxTot}>{l.days.length}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={{ paddingHorizontal: 34, paddingTop: 12 }}>
+          <Text style={s.small}>Marked cells (X) indicate the days on which each line runs during the campaign month.</Text>
+        </View>
+        <View style={s.foot} fixed>
+          <Text style={s.small}>{company.legalName ?? company.name}{company.trn ? ` · TRN ${company.trn}` : ""}</Text>
+          <Text style={s.small} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+        </View>
+      </Page>
+
+      {/* PAGE 3 — TERMS & CONDITIONS (single page, two columns) */}
       <Page size="A4" style={s.page}>
         <View style={s.tcHead}>
           <Image style={s.logo} src={MINDSET_LOGO_DATA_URI} />
@@ -202,13 +263,23 @@ function Doc({ data }: { data: BookingOrderPdfData }) {
           </View>
         </View>
         <Text style={s.tcIntro}>{BOOKING_ORDER_TERMS_INTRO}</Text>
-        <View style={s.tcWrap}>
-          {BOOKING_ORDER_TERMS.map((sec) => (
-            <View key={sec.heading} style={s.tcSec} wrap={false}>
-              <Text style={s.tcH}>{sec.heading}</Text>
-              {sec.clauses.map((c, i) => <Text key={i} style={s.tcP}>{c}</Text>)}
-            </View>
-          ))}
+        <View style={s.tcCols}>
+          <View style={s.tcCol}>
+            {tcLeft.map((sec) => (
+              <View key={sec.heading} style={s.tcSec} wrap={false}>
+                <Text style={s.tcH}>{sec.heading}</Text>
+                {sec.clauses.map((c, i) => <Text key={i} style={s.tcP}>{c}</Text>)}
+              </View>
+            ))}
+          </View>
+          <View style={s.tcCol}>
+            {tcRight.map((sec) => (
+              <View key={sec.heading} style={s.tcSec} wrap={false}>
+                <Text style={s.tcH}>{sec.heading}</Text>
+                {sec.clauses.map((c, i) => <Text key={i} style={s.tcP}>{c}</Text>)}
+              </View>
+            ))}
+          </View>
         </View>
         <View style={s.foot} fixed>
           <Text style={s.small}>{company.legalName ?? company.name} · Dubai Media City, Dubai, UAE</Text>
