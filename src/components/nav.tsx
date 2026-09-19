@@ -68,7 +68,7 @@ export function Nav({
         </div>
         <div className="flex-1">
           <div className="font-display text-xl font-semibold leading-none text-ink">MediaSync</div>
-          <div className="mt-1 text-[11px] tracking-wide text-muted">Telzon Solutions</div>
+          <div className="mt-1 text-[11px] tracking-wide text-muted">Mindset Media</div>
         </div>
         {onNavigate && (
           <button onClick={onNavigate} aria-label="Close menu" className="rounded-md p-1 text-muted hover:bg-bg lg:hidden">

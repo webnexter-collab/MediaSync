@@ -29,6 +29,13 @@
       "when": 1787309186081,
       "tag": "0003_doc_payment_terms_bank_details",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789805026479,
+      "tag": "0004_mediasync_crm_currency_tax",
+      "breakpoints": true
     }
   ]
 }

@@ -90,6 +90,19 @@ export const userRoleEnum = pgEnum("user_role", [
   "demo",
 ]);
 
+/* --- MediaSync: CRM account classification & media channels --- */
+
+// An "Account" (CRM) is stored in the customers table. Its type distinguishes
+// a direct client from an ad agency or a buying house (which book on behalf of
+// clients and may carry an agency commission).
+export const accountTypeEnum = pgEnum("account_type", [
+  "direct_client",
+  "agency",
+  "buying_house",
+]);
+
+export const mediaTypeEnum = pgEnum("media_type", ["print", "digital", "radio"]);
+
 /* ----------------------------------------------------------------------------
  * COMPANY / TENANT  (supports multiple FAB entities on one install)
  * -------------------------------------------------------------------------- */
@@ -160,6 +173,13 @@ export const customers = pgTable(
       .references(() => companies.id),
     code: varchar("code", { length: 30 }).notNull(), // CUST-0001
     name: varchar("name", { length: 200 }).notNull(),
+    // CRM: what kind of account this is, and (for agency-booked business) the
+    // agency this client belongs under. Self-reference within customers.
+    accountType: accountTypeEnum("account_type").default("direct_client").notNull(),
+    parentAgencyId: integer("parent_agency_id").references(
+      (): AnyPgColumn => customers.id,
+    ),
+    agencyCommissionPct: numeric("agency_commission_pct", { precision: 5, scale: 2 }).default("0").notNull(),
     trn: varchar("trn", { length: 15 }),
     contactPerson: varchar("contact_person", { length: 160 }),
     email: varchar("email", { length: 160 }),
@@ -457,5 +477,132 @@ export const bankAccounts = pgTable(
   },
   (t) => ({
     bankAccountNameIdx: index("bank_account_name_idx").on(t.companyId, t.name),
+  }),
+);
+
+/* ============================================================================
+ * MEDIASYNC — CRM CONTACTS, MEDIA CHANNELS & MULTI-CURRENCY / TAX ENGINE
+ * ========================================================================== */
+
+/* ----------------------------------------------------------------------------
+ * CONTACTS  (stakeholders belonging to a CRM account = customers row)
+ * -------------------------------------------------------------------------- */
+
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    role: varchar("role", { length: 120 }), // e.g. Media Buyer, Marketing Manager
+    email: varchar("email", { length: 160 }),
+    phone: varchar("phone", { length: 40 }),
+    isPrimary: boolean("is_primary").default(false).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    contactAccountIdx: index("contact_account_idx").on(t.companyId, t.customerId),
+  }),
+);
+
+/* ----------------------------------------------------------------------------
+ * MEDIA CHANNELS  (Print / Digital / Radio properties this agency deals in)
+ * -------------------------------------------------------------------------- */
+
+export const mediaChannels = pgTable(
+  "media_channels",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    mediaType: mediaTypeEnum("media_type").notNull(),
+    name: varchar("name", { length: 160 }).notNull(), // "Gulf News", "Radio 1 FM", "example.com"
+    code: varchar("code", { length: 30 }).notNull(),
+    // Buy-side vendor (publisher / station / network) this channel is sourced from.
+    vendorId: integer("vendor_id").references(() => suppliers.id),
+    isActive: boolean("is_active").default(true).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    channelCodeUq: uniqueIndex("channel_code_uq").on(t.companyId, t.code),
+    channelTypeIdx: index("channel_type_idx").on(t.companyId, t.mediaType),
+  }),
+);
+
+/* ----------------------------------------------------------------------------
+ * CURRENCIES  (documents transact in these; company base is companies.baseCurrency)
+ * -------------------------------------------------------------------------- */
+
+export const currencies = pgTable(
+  "currencies",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    code: varchar("code", { length: 3 }).notNull(), // AED, USD, EUR
+    name: varchar("name", { length: 60 }).notNull(),
+    symbol: varchar("symbol", { length: 8 }),
+    decimals: integer("decimals").default(2).notNull(), // minor units per major (100 = 2dp)
+    isActive: boolean("is_active").default(true).notNull(),
+  },
+  (t) => ({
+    currencyCodeUq: uniqueIndex("currency_code_uq").on(t.companyId, t.code),
+  }),
+);
+
+/* ----------------------------------------------------------------------------
+ * FX RATES  (rate to convert 1 unit of `currencyCode` into the base currency,
+ *   captured on financial documents at their issue date for reporting.)
+ * -------------------------------------------------------------------------- */
+
+export const fxRates = pgTable(
+  "fx_rates",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    currencyCode: varchar("currency_code", { length: 3 }).notNull(),
+    rateToBase: numeric("rate_to_base", { precision: 18, scale: 8 }).notNull(),
+    asOfDate: date("as_of_date").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    fxLookupIdx: index("fx_lookup_idx").on(t.companyId, t.currencyCode, t.asOfDate),
+  }),
+);
+
+/* ----------------------------------------------------------------------------
+ * TAX RULES  (generalises the fixed UAE 5% VAT to multi-jurisdiction:
+ *   resolve a rate by country + tax category, effective on the document date.)
+ * -------------------------------------------------------------------------- */
+
+export const taxRules = pgTable(
+  "tax_rules",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    name: varchar("name", { length: 120 }).notNull(), // "UAE VAT 5%", "US Sales Tax — exempt"
+    country: varchar("country", { length: 2 }).default("AE").notNull(),
+    category: taxCategoryEnum("category").default("standard").notNull(),
+    ratePct: numeric("rate_pct", { precision: 5, scale: 2 }).default("0").notNull(),
+    isDefault: boolean("is_default").default(false).notNull(),
+    effectiveFrom: date("effective_from"),
+    effectiveTo: date("effective_to"),
+    isActive: boolean("is_active").default(true).notNull(),
+  },
+  (t) => ({
+    taxRuleLookupIdx: index("tax_rule_lookup_idx").on(t.companyId, t.country, t.category),
   }),
 );
