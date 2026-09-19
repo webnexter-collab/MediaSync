@@ -196,6 +196,30 @@ Each week ends with a deployed build on the DDNS URL for review.
 
 ---
 
+## 10a. Revision 1 — aligned to Mindset's real Media Booking Order (2026-09-19)
+
+After studying Mindset's live Excel workbook and real BOs, v1 is re-centred on their
+actual core document. This supersedes the generic "Proposal → Media Order" framing where they differ.
+
+- **Central document = Media Booking Order (`BO-MS-<seq>`)** — issued by the company to a
+  publisher. A 3-part document: **(1)** header + line items + VAT totals, **(2)** Annexure
+  day 1–31 schedule grid per line, **(3)** bilingual EN/AR Terms & Conditions.
+- **Header:** To/Advertiser (publisher), Agency, Client, Brand, Campaign, Medium, Currency,
+  Payment Terms, Date, BO No.
+- **Line items = FLAT format** (decided): Platform, Particulars/Description, Branding details,
+  Period/Duration, Qty, UOM, Unit Gross, Total Gross(=qty×unitGross), Discount, Unit Net,
+  Total Net(=qty×unitNet) + a **media-type tag**. No heavy per-media sub-tables.
+- **Totals:** Total Gross → Discount → Agency Discount → Total Net → VAT 5% → Net (incl. VAT).
+- **Media types:** Print, Digital, Radio, **TV, Website** (expand the enum).
+- **Issuer:** Mindset LLC only for now; schema stays company-aware for later white-label
+  (ENG Future Media LLC etc.).
+- **BO output:** modern editorial black-and-white design (approved preview), Fraunces + IBM Plex,
+  rendered via `@react-pdf`. Annexure grid + bilingual T&C included (T&C as configurable blocks).
+- **Publishers/media** = vendors master (The National, Sky News Arabia, Al Ain, IMI group).
+
+Revised Week 2/3 emphasis: build the **BO document** (header + flat lines + totals + PDF) first,
+then rate cards feeding line prices, then the Annexure + T&C, then convert BO → invoice.
+
 ## 11. Open items / dependencies (Mindset Media to provide)
 - [ ] New Neon **`DATABASE_URL`** for project `mindsetmedia`/`mediasync` (dev) → into `.env`
 - [ ] Base/reporting currency choice (AED or USD?) and the currencies/jurisdictions in play
