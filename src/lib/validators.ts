@@ -16,7 +16,7 @@ const trn = z
     message: "TRN must be 15 digits",
   });
 
-export const accountTypeValues = ["direct_client", "agency", "buying_house"] as const;
+export const accountTypeValues = ["direct_client", "agency", "buying_house", "advertiser"] as const;
 
 export const customerSchema = z.object({
   code: z.string().trim().min(1, "Code is required").max(30),

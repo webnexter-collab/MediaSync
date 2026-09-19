@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FileText, ReceiptText, Truck, HandCoins, ShoppingCart,
   Banknote, Users, Building2, Package, Landmark, TrendingUp, TrendingDown,
   FileUser, FileBox, ShieldCheck, LogOut, Settings, X, Megaphone, Coins,
-  Percent, ClipboardList, Tags, type LucideIcon,
+  Percent, ClipboardList, Tags, Contact, UserRound, Ruler, type LucideIcon,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import type { Role } from "@/lib/session";
@@ -32,7 +32,9 @@ const groups: Group[] = [
   ]},
   { title: "CRM", items: [
     { href: "/customers", label: "Accounts", icon: Users },
-    { href: "/suppliers", label: "Vendors", icon: Building2 },
+    { href: "/customers?type=advertiser", label: "Advertisers", icon: Contact },
+    { href: "/customers?type=direct_client", label: "Clients", icon: UserRound },
+    { href: "/suppliers", label: "Publishers", icon: Building2 },
     { href: "/media-channels", label: "Media Channels", icon: Megaphone },
     { href: "/items", label: "Items", icon: Package },
     { href: "/bank-accounts", label: "Bank & Cash", icon: Landmark },
@@ -46,6 +48,7 @@ const groups: Group[] = [
   { title: "Administration", adminOnly: true, items: [
     { href: "/currencies", label: "Currencies & FX", icon: Coins },
     { href: "/tax-rules", label: "Tax Rules", icon: Percent },
+    { href: "/uoms", label: "Units (UOM)", icon: Ruler },
     { href: "/admin/users", label: "Users", icon: ShieldCheck },
   ]},
 ];

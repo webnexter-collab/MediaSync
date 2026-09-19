@@ -69,6 +69,7 @@ export default async function EditBookingOrder({ params }: { params: Promise<{ i
             currencies={opts.currencies}
             channels={opts.channels}
             rateItems={opts.rateItems}
+            uoms={opts.uoms}
             defaults={defaults}
             submitLabel="Update booking order"
             cancelHref={`/booking-orders/${bo.id}`}

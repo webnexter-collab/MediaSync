@@ -29,12 +29,13 @@ function AddButton() {
 const inp = "field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm";
 
 export function RateCardItems({
-  rateCardId, currency, items, channels,
+  rateCardId, currency, items, channels, uoms = [],
 }: {
   rateCardId: number;
   currency: string;
   items: Item[];
   channels: { id: number; name: string; mediaType: string }[];
+  uoms?: string[];
 }) {
   const add = addRateCardItem.bind(null, rateCardId);
   const [state, formAction] = useActionState<FormState, FormData>(add, { ok: false });
@@ -93,7 +94,8 @@ export function RateCardItems({
           </select>
           <input name="platform" placeholder="Platform (e.g. The National)" className={inp} />
           <input name="particulars" placeholder="Particulars (e.g. Full Page)" className={inp} />
-          <input name="uom" placeholder="UOM (e.g. Insertion)" className={inp} />
+          <input name="uom" list="rc-uom-list" placeholder="UOM (e.g. Insertion)" className={inp} />
+          <datalist id="rc-uom-list">{uoms.map((u) => <option key={u} value={u} />)}</datalist>
           <input name="unitGross" inputMode="decimal" placeholder={`Unit gross (${currency})`} className={inp + " tnum"} />
           <input name="defaultDiscountPct" inputMode="decimal" placeholder="Default disc %" className={inp + " tnum"} />
           <input name="brandingDetails" placeholder="Branding details (optional)" className={inp + " lg:col-span-2"} />

@@ -36,7 +36,7 @@ const s = StyleSheet.create({
   // header
   top: { backgroundColor: INK, color: "#fff", paddingHorizontal: 34, paddingVertical: 20,
     flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  logo: { height: 40, width: 40 },
+  logo: { height: 44, width: 44 },
   kicker: { fontSize: 8, letterSpacing: 2, color: "#bdbdc2", textTransform: "uppercase", textAlign: "right" },
   title: { fontSize: 17, color: "#fff", fontFamily: "Helvetica-Bold", textAlign: "right", marginTop: 2 },
   no: { fontSize: 10, color: "#e9e9ec", textAlign: "right", marginTop: 5 },

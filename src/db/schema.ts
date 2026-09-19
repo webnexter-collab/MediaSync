@@ -99,6 +99,7 @@ export const accountTypeEnum = pgEnum("account_type", [
   "direct_client",
   "agency",
   "buying_house",
+  "advertiser",
 ]);
 
 export const mediaTypeEnum = pgEnum("media_type", [
@@ -738,6 +739,23 @@ export const rateCards = pgTable(
   },
   (t) => ({
     rateCardNameIdx: index("rate_card_name_idx").on(t.companyId, t.name),
+  }),
+);
+
+/* Units of measure — maintainable list used by BO lines and rate-card items. */
+export const uoms = pgTable(
+  "uoms",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    name: varchar("name", { length: 40 }).notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+  },
+  (t) => ({
+    uomNameUq: uniqueIndex("uom_name_uq").on(t.companyId, t.name),
   }),
 );
 

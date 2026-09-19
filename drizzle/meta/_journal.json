@@ -57,6 +57,13 @@
       "when": 1789828289163,
       "tag": "0007_bo_cost_margin",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789845299213,
+      "tag": "0008_uoms_advertiser",
+      "breakpoints": true
     }
   ]
 }

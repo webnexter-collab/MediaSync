@@ -82,7 +82,7 @@ const inp = "field h-9 w-full rounded-md border border-line-2 bg-surface px-2 te
 const inpR = inp + " tnum text-right";
 
 export function BookingOrderForm({
-  action, vendors, accounts, currencies, channels, rateItems = [], defaults, submitLabel, cancelHref = "/booking-orders",
+  action, vendors, accounts, currencies, channels, rateItems = [], uoms = [], defaults, submitLabel, cancelHref = "/booking-orders",
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   vendors: VendorOpt[];
@@ -90,10 +90,14 @@ export function BookingOrderForm({
   currencies: CurrencyOpt[];
   channels: ChannelOpt[];
   rateItems?: RateItemOpt[];
+  uoms?: string[];
   defaults?: BoDefaults;
   submitLabel: string;
   cancelHref?: string;
 }) {
+  const advertiserNames = accounts.filter((a) => a.accountType === "advertiser").map((a) => a.name);
+  const clientNames = accounts.filter((a) => a.accountType === "direct_client").map((a) => a.name);
+  const MEDIUM_OPTIONS = ["Print", "Digital", "Radio", "TV", "Website"];
   const [state, formAction] = useActionState<FormState, FormData>(action, { ok: false });
   const [lines, setLines] = useState<Line[]>(defaults?.lines?.length ? defaults.lines : [emptyLine()]);
   const [currency, setCurrency] = useState(defaults?.currency ?? "AED");
@@ -104,6 +108,7 @@ export function BookingOrderForm({
   const [client, setClient] = useState(defaults?.client ?? "");
   const [agencyDisc, setAgencyDisc] = useState(defaults?.agencyDiscountPct ?? "0");
   const [vatRate, setVatRate] = useState(defaults?.vatRatePct ?? "5");
+  const [medium, setMedium] = useState(defaults?.medium ?? "");
 
   const totals = useMemo(() => computeBoTotals(
     lines.map((l) => ({ quantity: num(l.quantity), unitGrossFils: toFils(l.unitGross), discountPct: num(l.discountPct), unitCostFils: toFils(l.unitCost) })),
@@ -164,6 +169,11 @@ export function BookingOrderForm({
       <input type="hidden" name="publisherVendorId" value={pubVendorId} />
       <input type="hidden" name="accountId" value={accountId} />
 
+      {/* Shared dropdown suggestion lists */}
+      <datalist id="uom-list">{uoms.map((u) => <option key={u} value={u} />)}</datalist>
+      <datalist id="advertiser-list">{advertiserNames.map((n) => <option key={n} value={n} />)}</datalist>
+      <datalist id="client-list">{clientNames.map((n) => <option key={n} value={n} />)}</datalist>
+
       {state.message && (
         <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">{state.message}</div>
       )}
@@ -192,13 +202,20 @@ export function BookingOrderForm({
           <input type="date" name="issueDate" defaultValue={defaults?.issueDate ?? today()} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" />
         </div>
 
-        <div><label className="mb-1.5 block text-sm font-medium">Advertiser</label><input name="advertiser" defaultValue={defaults?.advertiser ?? ""} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
+        <div><label className="mb-1.5 block text-sm font-medium">Advertiser</label><input name="advertiser" list="advertiser-list" defaultValue={defaults?.advertiser ?? ""} placeholder="Select or type…" className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
         <div><label className="mb-1.5 block text-sm font-medium">Agency</label><input name="agency" value={agency} onChange={(e) => setAgency(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
-        <div><label className="mb-1.5 block text-sm font-medium">Client</label><input name="client" value={client} onChange={(e) => setClient(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
+        <div><label className="mb-1.5 block text-sm font-medium">Client</label><input name="client" list="client-list" value={client} onChange={(e) => setClient(e.target.value)} placeholder="Select or type…" className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
         <div><label className="mb-1.5 block text-sm font-medium">Brand</label><input name="brand" defaultValue={defaults?.brand ?? ""} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
 
         <div><label className="mb-1.5 block text-sm font-medium">Campaign</label><input name="campaign" defaultValue={defaults?.campaign ?? ""} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
-        <div><label className="mb-1.5 block text-sm font-medium">Medium</label><input name="medium" defaultValue={defaults?.medium ?? ""} placeholder="Digital / Print / Radio" className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Medium</label>
+          <select name="medium" value={medium} onChange={(e) => setMedium(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
+            <option value="">— Select —</option>
+            {MEDIUM_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            {medium && !MEDIUM_OPTIONS.includes(medium) && <option value={medium}>{medium}</option>}
+          </select>
+        </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium">Currency</label>
           <select name="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
@@ -210,20 +227,20 @@ export function BookingOrderForm({
 
       {/* Lines */}
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full text-sm" style={{ minWidth: 980 }}>
+        <table className="w-full text-sm" style={{ minWidth: 1220 }}>
           <thead>
             <tr className="border-b border-line bg-bg text-left text-xs uppercase tracking-wide text-muted">
-              <th className="px-3 py-2.5 font-medium">Media</th>
+              <th className="w-28 px-3 py-2.5 font-medium">Media</th>
               <th className="px-3 py-2.5 font-medium">Platform</th>
               <th className="px-3 py-2.5 font-medium">Particulars</th>
               <th className="px-3 py-2.5 font-medium">Branding / Period</th>
-              <th className="w-16 px-3 py-2.5 text-right font-medium">Qty</th>
-              <th className="w-20 px-3 py-2.5 font-medium">UOM</th>
-              <th className="w-28 px-3 py-2.5 text-right font-medium">Unit Gross</th>
-              <th className="w-16 px-3 py-2.5 text-right font-medium">Disc %</th>
-              <th className="w-24 px-3 py-2.5 text-right font-medium">Unit Cost</th>
-              <th className="w-28 px-3 py-2.5 text-right font-medium">Total Net</th>
-              <th className="w-24 px-3 py-2.5 text-right font-medium">Margin</th>
+              <th className="w-20 px-3 py-2.5 text-right font-medium">Qty</th>
+              <th className="w-32 px-3 py-2.5 font-medium">UOM</th>
+              <th className="w-32 px-3 py-2.5 text-right font-medium">Unit Gross</th>
+              <th className="w-20 px-3 py-2.5 text-right font-medium">Disc %</th>
+              <th className="w-32 px-3 py-2.5 text-right font-medium">Unit Cost</th>
+              <th className="w-32 px-3 py-2.5 text-right font-medium">Total Net</th>
+              <th className="w-32 px-3 py-2.5 text-right font-medium">Margin</th>
               <th className="w-8 px-2 py-2.5" />
             </tr>
           </thead>
@@ -231,7 +248,7 @@ export function BookingOrderForm({
             {lines.map((l, i) => (
               <tr key={i} className="border-b border-line align-top last:border-0">
                 <td className="px-3 py-2">
-                  <select value={l.mediaType} onChange={(e) => setLine(i, { mediaType: e.target.value })} className={inp + " w-24"}>
+                  <select value={l.mediaType} onChange={(e) => setLine(i, { mediaType: e.target.value })} className={inp}>
                     {mediaTypeValues.map((m) => <option key={m} value={m}>{MEDIA_LABEL[m]}</option>)}
                   </select>
                 </td>
@@ -258,7 +275,7 @@ export function BookingOrderForm({
                   <input value={l.period} onChange={(e) => setLine(i, { period: e.target.value })} placeholder="Period / duration" className={inp} />
                 </td>
                 <td className="px-3 py-2"><input value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} inputMode="decimal" className={inpR} /></td>
-                <td className="px-3 py-2"><input value={l.uom} onChange={(e) => setLine(i, { uom: e.target.value })} placeholder="Article" className={inp} /></td>
+                <td className="px-3 py-2"><input value={l.uom} onChange={(e) => setLine(i, { uom: e.target.value })} list="uom-list" placeholder="UOM" className={inp} /></td>
                 <td className="px-3 py-2"><input value={l.unitGross} onChange={(e) => setLine(i, { unitGross: e.target.value })} inputMode="decimal" className={inpR} /></td>
                 <td className="px-3 py-2"><input value={l.discountPct} onChange={(e) => setLine(i, { discountPct: e.target.value })} inputMode="decimal" className={inpR} /></td>
                 <td className="px-3 py-2"><input value={l.unitCost} onChange={(e) => setLine(i, { unitCost: e.target.value })} inputMode="decimal" className={inpR} title="Internal cost payable to publisher" /></td>

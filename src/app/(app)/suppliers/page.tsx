@@ -37,9 +37,9 @@ export default async function SuppliersPage({
   return (
     <div>
       <PageHeader
-        title="Suppliers"
-        subtitle="Your supplier directory with contacts, terms and balances."
-        action={<LinkButton href="/suppliers/new">New supplier</LinkButton>}
+        title="Publishers"
+        subtitle="Media owners, publications, stations and networks you book with."
+        action={<LinkButton href="/suppliers/new">New publisher</LinkButton>}
       />
 
       <form className="mb-4" action="/suppliers">

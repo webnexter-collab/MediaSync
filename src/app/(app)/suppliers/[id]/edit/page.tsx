@@ -32,7 +32,7 @@ export default async function EditSupplier({
 
   return (
     <div>
-      <PageHeader title={row.name} subtitle={`Supplier · ${row.code}`} />
+      <PageHeader title={row.name} subtitle={`Publisher · ${row.code}`} />
       <Card>
         <div className="px-6 py-6">
           <MasterForm

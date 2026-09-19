@@ -13,28 +13,38 @@ const ACCOUNT_TYPE_LABEL: Record<string, string> = {
   direct_client: "Direct client",
   agency: "Agency",
   buying_house: "Buying house",
+  advertiser: "Advertiser",
+};
+
+const VALID_TYPES = ["direct_client", "agency", "buying_house", "advertiser"] as const;
+type AcctType = (typeof VALID_TYPES)[number];
+
+const VIEW_TITLE: Record<string, { title: string; subtitle: string }> = {
+  advertiser: { title: "Advertisers", subtitle: "Brands/advertisers you can select on Booking Orders." },
+  direct_client: { title: "Clients", subtitle: "Paying clients you can select on Booking Orders." },
+  agency: { title: "Agencies", subtitle: "Agencies and buying houses." },
+  buying_house: { title: "Buying houses", subtitle: "Buying houses." },
 };
 
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; type?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, type } = await searchParams;
+  const activeType = (VALID_TYPES as readonly string[]).includes(type ?? "") ? (type as AcctType) : undefined;
+  const view = activeType ? VIEW_TITLE[activeType] : { title: "Accounts", subtitle: "Clients, agencies and buying houses — your CRM directory." };
 
   let rows: (typeof customers.$inferSelect)[] = [];
   let dbError = false;
   try {
-    const where = q
-      ? and(
-          eq(customers.companyId, COMPANY_ID),
-          or(ilike(customers.name, `%${q}%`), ilike(customers.code, `%${q}%`)),
-        )
-      : eq(customers.companyId, COMPANY_ID);
+    const conds = [eq(customers.companyId, COMPANY_ID)];
+    if (q) conds.push(or(ilike(customers.name, `%${q}%`), ilike(customers.code, `%${q}%`))!);
+    if (activeType) conds.push(eq(customers.accountType, activeType));
     rows = await db
       .select()
       .from(customers)
-      .where(where)
+      .where(and(...conds))
       .orderBy(desc(customers.createdAt))
       .limit(200);
   } catch {
@@ -44,12 +54,13 @@ export default async function CustomersPage({
   return (
     <div>
       <PageHeader
-        title="Accounts"
-        subtitle="Clients, agencies and buying houses — your CRM directory."
+        title={view.title}
+        subtitle={view.subtitle}
         action={<LinkButton href="/customers/new">New account</LinkButton>}
       />
 
       <form className="mb-4" action="/customers">
+        {activeType && <input type="hidden" name="type" value={activeType} />}
         <input
           name="q"
           defaultValue={q}

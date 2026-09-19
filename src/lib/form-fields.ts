@@ -8,6 +8,7 @@ const ACCOUNT_TYPE_OPTIONS = [
   { value: "direct_client", label: "Direct client" },
   { value: "agency", label: "Agency" },
   { value: "buying_house", label: "Buying house" },
+  { value: "advertiser", label: "Advertiser" },
 ];
 
 export type AccountFormOptions = {
@@ -49,7 +50,7 @@ export function customerFields(
 
 export function supplierFields(row?: SupplierRow, suggestedCode?: string): FieldDef[] {
   return [
-    { name: "code", label: "Supplier code", required: true, half: true, placeholder: "SUPP-0001", defaultValue: row?.code ?? suggestedCode },
+    { name: "code", label: "Publisher code", required: true, half: true, placeholder: "VEN-0001", defaultValue: row?.code ?? suggestedCode },
     { name: "name", label: "Name", required: true, half: true, defaultValue: row?.name },
     { name: "trn", label: "TRN", half: true, placeholder: "15 digits", defaultValue: row?.trn ?? undefined },
     { name: "contactPerson", label: "Contact person", half: true, defaultValue: row?.contactPerson ?? undefined },
@@ -103,7 +104,7 @@ export function mediaChannelFields(
     { name: "name", label: "Channel name", required: true, half: true, placeholder: "Gulf News — Main Edition", defaultValue: row?.name },
     { name: "code", label: "Code", required: true, half: true, placeholder: "PR-GN-MAIN", defaultValue: row?.code },
     { name: "mediaType", label: "Media type", type: "select", half: true, options: MEDIA_TYPE_OPTIONS, defaultValue: row?.mediaType ?? "print" },
-    { name: "vendorId", label: "Source vendor", type: "select", half: true, options: [{ value: "", label: "— None —" }, ...vendors], defaultValue: row?.vendorId != null ? String(row.vendorId) : "", hint: "Publisher / station / network" },
+    { name: "vendorId", label: "Source publisher", type: "select", half: true, options: [{ value: "", label: "— None —" }, ...vendors], defaultValue: row?.vendorId != null ? String(row.vendorId) : "", hint: "Media owner / station / network" },
     { name: "notes", label: "Notes", type: "textarea", defaultValue: row?.notes ?? undefined },
     { name: "isActive", label: "Active", type: "toggle", defaultValue: row ? row.isActive : true },
   ];

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, currencies, suppliers, mediaChannels, rateCards, rateCardItems } from "@/db/schema";
+import { customers, currencies, suppliers, mediaChannels, rateCards, rateCardItems, uoms } from "@/db/schema";
 import type { AccountFormOptions } from "@/lib/form-fields";
 
 const COMPANY_ID = 1;
@@ -23,6 +23,12 @@ export async function getBookingOrderFormOptions() {
         .from(mediaChannels).where(and(eq(mediaChannels.companyId, COMPANY_ID), eq(mediaChannels.isActive, true)))
         .orderBy(asc(mediaChannels.name)),
     ]);
+
+    const uomRows = await db
+      .select({ name: uoms.name })
+      .from(uoms)
+      .where(and(eq(uoms.companyId, COMPANY_ID), eq(uoms.isActive, true)))
+      .orderBy(asc(uoms.sortOrder), asc(uoms.name));
 
     const rateRows = await db
       .select({
@@ -55,9 +61,10 @@ export async function getBookingOrderFormOptions() {
       currencies: curr.length ? curr : [{ code: "AED", name: "UAE Dirham" }],
       channels,
       rateItems,
+      uoms: uomRows.map((u) => u.name),
     };
   } catch {
-    return { vendors: [], accounts: [], currencies: [{ code: "AED", name: "UAE Dirham" }], channels: [], rateItems: [] };
+    return { vendors: [], accounts: [], currencies: [{ code: "AED", name: "UAE Dirham" }], channels: [], rateItems: [], uoms: [] as string[] };
   }
 }
 

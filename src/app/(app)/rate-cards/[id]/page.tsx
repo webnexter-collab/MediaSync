@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { rateCards, rateCardItems, mediaChannels } from "@/db/schema";
+import { rateCards, rateCardItems, mediaChannels, uoms as uomsTable } from "@/db/schema";
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
 import { RateCardItems } from "@/components/rate-card-items";
 
@@ -17,10 +17,11 @@ export default async function RateCardView({ params }: { params: Promise<{ id: s
   const [card] = await db.select().from(rateCards).where(and(eq(rateCards.id, cardId), eq(rateCards.companyId, COMPANY_ID))).limit(1);
   if (!card) notFound();
 
-  const [items, channels] = await Promise.all([
+  const [items, channels, uomRows] = await Promise.all([
     db.select().from(rateCardItems).where(eq(rateCardItems.rateCardId, cardId)).orderBy(asc(rateCardItems.sortOrder)),
     db.select({ id: mediaChannels.id, name: mediaChannels.name, mediaType: mediaChannels.mediaType })
       .from(mediaChannels).where(and(eq(mediaChannels.companyId, COMPANY_ID), eq(mediaChannels.isActive, true))).orderBy(asc(mediaChannels.name)),
+    db.select({ name: uomsTable.name }).from(uomsTable).where(and(eq(uomsTable.companyId, COMPANY_ID), eq(uomsTable.isActive, true))).orderBy(asc(uomsTable.sortOrder), asc(uomsTable.name)),
   ]);
 
   return (
@@ -38,7 +39,7 @@ export default async function RateCardView({ params }: { params: Promise<{ id: s
       {card.notes && <p className="mb-4 max-w-2xl text-sm text-muted">{card.notes}</p>}
       <Card>
         <div className="px-6 py-6">
-          <RateCardItems rateCardId={card.id} currency={card.currency} items={items} channels={channels} />
+          <RateCardItems rateCardId={card.id} currency={card.currency} items={items} channels={channels} uoms={uomRows.map((u) => u.name)} />
         </div>
       </Card>
     </div>

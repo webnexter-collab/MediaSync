@@ -10,7 +10,7 @@ export default async function NewSupplier() {
   const suggestedCode = await nextSupplierCode();
   return (
     <div>
-      <PageHeader title="New supplier" subtitle="Add a supplier to your directory." />
+      <PageHeader title="New publisher" subtitle="Add a media owner / publication / station / network." />
       <Card>
         <div className="px-6 py-6">
           <MasterForm
