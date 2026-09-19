@@ -1,15 +1,16 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { bookingOrders, bookingOrderLines } from "@/db/schema";
+import { bookingOrders, bookingOrderLines, documents, documentLines } from "@/db/schema";
 import { assertCanWrite, getSession } from "@/lib/auth";
 import { bookingOrderSchema, type FormState, type BookingOrderInput } from "@/lib/validators";
 import { toFils } from "@/lib/money";
 import { computeBoLine, computeBoTotals } from "@/lib/booking-order";
-import { nextBookingOrderNumber } from "@/lib/numbering";
+import { computeLine, computeTotals, type LineInput } from "@/lib/vat";
+import { nextNumber, nextBookingOrderNumber } from "@/lib/numbering";
 
 const COMPANY_ID = 1;
 
@@ -189,6 +190,134 @@ export async function updateBookingOrder(
   }
   revalidatePath(`/booking-orders/${id}`);
   redirect(`/booking-orders/${id}`);
+}
+
+/**
+ * Convert a Booking Order into a Tax Invoice (documents table). The BO's
+ * header agency-discount is folded into each line's discount so the invoice
+ * totals reconcile with the BO. Marks the BO 'invoiced'.
+ */
+export async function convertBookingOrderToInvoice(boId: number): Promise<void> {
+  await assertCanWrite();
+
+  const [bo] = await db
+    .select()
+    .from(bookingOrders)
+    .where(and(eq(bookingOrders.id, boId), eq(bookingOrders.companyId, COMPANY_ID)))
+    .limit(1);
+  if (!bo) throw new Error("Booking order not found.");
+  if (bo.status === "cancelled" || bo.status === "invoiced") {
+    throw new Error(`Cannot invoice a ${bo.status} booking order.`);
+  }
+
+  const lines = await db
+    .select()
+    .from(bookingOrderLines)
+    .where(eq(bookingOrderLines.bookingOrderId, boId))
+    .orderBy(asc(bookingOrderLines.lineNo));
+  if (lines.length === 0) throw new Error("Booking order has no lines.");
+
+  const agencyPct = Number(bo.agencyDiscountPct) || 0;
+  const vatRate = Number(bo.vatRatePct) || 0;
+
+  // Map each BO line to an invoice line; combined discount = 1 - (1-lineDisc)(1-agency).
+  const mapped = lines.map((l) => {
+    const lineDisc = Number(l.discountPct) || 0;
+    const combinedPct = Math.round((1 - (1 - lineDisc / 100) * (1 - agencyPct / 100)) * 10000) / 100;
+    const description = [l.platform, l.particulars, l.brandingDetails, l.period]
+      .filter(Boolean)
+      .join(" · ") || "Media placement";
+    return {
+      description,
+      quantity: Number(l.quantity),
+      unitPriceFils: l.unitGrossFils,
+      discountPercent: combinedPct,
+      taxCategory: "standard" as const,
+      vatRate,
+    };
+  });
+
+  const inputs: LineInput[] = mapped.map((m) => ({
+    quantity: m.quantity,
+    unitPriceFils: m.unitPriceFils,
+    discountPercent: m.discountPercent,
+    taxCategory: m.taxCategory,
+    vatRate: m.vatRate,
+  }));
+  const { totals } = computeTotals(inputs);
+
+  const notes = [
+    `Converted from Booking Order ${bo.number}.`,
+    bo.toName ? `Publisher: ${bo.toName}.` : null,
+    bo.advertiser || bo.agency || bo.client ? `Advertiser/Agency/Client: ${[bo.advertiser, bo.agency, bo.client].filter(Boolean).join(" / ")}.` : null,
+    bo.campaign ? `Campaign: ${bo.campaign}.` : null,
+  ].filter(Boolean).join(" ");
+
+  let invId: number;
+  try {
+    invId = await db.transaction(async (tx) => {
+      const number = await nextNumber(tx, { companyId: COMPANY_ID, kind: "invoice", prefix: "INV" });
+      const [doc] = await tx
+        .insert(documents)
+        .values({
+          companyId: COMPANY_ID,
+          type: "invoice",
+          number,
+          partyType: "customer",
+          customerId: bo.accountId,
+          status: "draft",
+          issueDate: new Date().toISOString().slice(0, 10),
+          reference: bo.number,
+          currency: bo.currency,
+          exchangeRate: bo.exchangeRate,
+          subtotalFils: totals.subtotalFils,
+          discountTotalFils: totals.discountTotalFils,
+          vatTotalFils: totals.vatTotalFils,
+          grandTotalFils: totals.grandTotalFils,
+          paymentTerms: bo.paymentTerms,
+          notes,
+        })
+        .returning({ id: documents.id });
+
+      await tx.insert(documentLines).values(
+        mapped.map((m, i) => {
+          const r = computeLine({
+            quantity: m.quantity,
+            unitPriceFils: m.unitPriceFils,
+            discountPercent: m.discountPercent,
+            taxCategory: m.taxCategory,
+            vatRate: m.vatRate,
+          });
+          return {
+            documentId: doc.id,
+            lineNo: i + 1,
+            description: m.description,
+            quantity: String(m.quantity),
+            unitPriceFils: m.unitPriceFils,
+            discountPercent: String(m.discountPercent),
+            taxCategory: m.taxCategory,
+            vatRate: String(m.vatRate),
+            lineSubtotalFils: r.lineSubtotalFils,
+            vatAmountFils: r.vatAmountFils,
+            lineTotalFils: r.lineTotalFils,
+          };
+        }),
+      );
+
+      await tx
+        .update(bookingOrders)
+        .set({ status: "invoiced", updatedAt: new Date() })
+        .where(and(eq(bookingOrders.id, boId), eq(bookingOrders.companyId, COMPANY_ID)));
+
+      return doc.id;
+    });
+  } catch (e) {
+    throw new Error(`Could not create invoice: ${e instanceof Error ? e.message : "error"}`);
+  }
+
+  revalidatePath("/invoices");
+  revalidatePath(`/booking-orders/${boId}`);
+  redirect(`/invoices/${invId}`);
 }
 
 export async function setBookingOrderStatus(

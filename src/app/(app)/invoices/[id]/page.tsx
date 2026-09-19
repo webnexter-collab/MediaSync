@@ -167,21 +167,21 @@ export default async function InvoiceDetail({
           {/* Totals */}
           <div className="mt-4 flex justify-end">
             <dl className="w-64 space-y-1.5 text-sm">
-              <Row label="Subtotal" value={formatFils(doc.subtotalFils)} />
+              <Row label="Subtotal" value={formatFils(doc.subtotalFils, { currency: doc.currency })} />
               {doc.discountTotalFils > 0 && (
                 <Row label="Discount" value={`− ${formatFils(doc.discountTotalFils, { withSymbol: false })}`} />
               )}
-              <Row label="VAT" value={formatFils(doc.vatTotalFils)} />
+              <Row label="VAT" value={formatFils(doc.vatTotalFils, { currency: doc.currency })} />
               <div className="flex justify-between border-t border-line pt-2 text-base font-semibold text-ink">
                 <dt>Total</dt>
-                <dd className="tnum">{formatFils(doc.grandTotalFils)}</dd>
+                <dd className="tnum">{formatFils(doc.grandTotalFils, { currency: doc.currency })}</dd>
               </div>
               {doc.amountPaidFils > 0 && (
                 <>
                   <Row label="Paid" value={`− ${formatFils(doc.amountPaidFils, { withSymbol: false })}`} />
                   <div className="flex justify-between border-t border-line pt-2 font-semibold text-teal-ink">
                     <dt>Outstanding</dt>
-                    <dd className="tnum">{formatFils(outstandingFils)}</dd>
+                    <dd className="tnum">{formatFils(outstandingFils, { currency: doc.currency })}</dd>
                   </div>
                 </>
               )}

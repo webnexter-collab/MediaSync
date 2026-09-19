@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { bookingOrders, bookingOrderLines } from "@/db/schema";
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
 import { formatFils } from "@/lib/money";
-import { setBookingOrderStatus } from "@/actions/booking-orders";
+import { setBookingOrderStatus, convertBookingOrderToInvoice } from "@/actions/booking-orders";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +59,12 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
         )}
         {bo.status !== "cancelled" && bo.status !== "invoiced" && (
           <form action={setBookingOrderStatus.bind(null, bo.id, "cancelled")}><button className="rounded-lg border border-line-2 bg-surface px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/5">Cancel</button></form>
+        )}
+        {(bo.status === "confirmed" || bo.status === "sent") && (
+          <form action={convertBookingOrderToInvoice.bind(null, bo.id)}><button className="rounded-lg bg-teal px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">Create Invoice</button></form>
+        )}
+        {bo.status === "invoiced" && (
+          <Link href="/invoices" className="rounded-lg border border-line-2 bg-surface px-3 py-1.5 text-xs font-medium text-teal-ink hover:bg-bg">View invoices →</Link>
         )}
       </div>
 

@@ -25,6 +25,7 @@ export type InvoicePdfData = {
     dueDate?: string | null;
     reference?: string | null;
     status: string;
+    currency?: string;
     subtotalFils: number;
     discountTotalFils: number;
     vatTotalFils: number;
@@ -154,7 +155,7 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
         <View style={s.totals}>
           <View style={s.totalRow}>
             <Text style={s.muted}>Subtotal</Text>
-            <Text>{formatFils(invoice.subtotalFils)}</Text>
+            <Text>{formatFils(invoice.subtotalFils, { currency: invoice.currency })}</Text>
           </View>
           {invoice.discountTotalFils > 0 ? (
             <View style={s.totalRow}>
@@ -163,12 +164,12 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
             </View>
           ) : null}
           <View style={s.totalRow}>
-            <Text style={s.muted}>VAT (5%)</Text>
-            <Text>{formatFils(invoice.vatTotalFils)}</Text>
+            <Text style={s.muted}>VAT</Text>
+            <Text>{formatFils(invoice.vatTotalFils, { currency: invoice.currency })}</Text>
           </View>
           <View style={s.grand}>
             <Text>Total</Text>
-            <Text>{formatFils(invoice.grandTotalFils)}</Text>
+            <Text>{formatFils(invoice.grandTotalFils, { currency: invoice.currency })}</Text>
           </View>
         </View>
 

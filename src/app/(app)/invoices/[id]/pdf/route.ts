@@ -60,6 +60,7 @@ export async function GET(
       dueDate: doc.dueDate,
       reference: doc.reference,
       status: doc.status,
+      currency: doc.currency,
       subtotalFils: doc.subtotalFils,
       discountTotalFils: doc.discountTotalFils,
       vatTotalFils: doc.vatTotalFils,
