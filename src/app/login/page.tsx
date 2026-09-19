@@ -18,7 +18,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <LoginForm action={login} next={next ?? "/"} />
         </div>
-        <p className="mt-6 text-center text-xs text-muted">Telzon Solutions · MediaSync</p>
+        <p className="mt-6 text-center text-xs text-muted">Mindset Media · MediaSync</p>
       </div>
     </div>
   );
