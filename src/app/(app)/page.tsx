@@ -2,10 +2,10 @@ import Link from "next/link";
 import { and, eq, or, sql, desc } from "drizzle-orm";
 import {
   ArrowUpRight, ArrowDownRight, Landmark, AlertTriangle,
-  Plus, FileText, ShoppingCart,
+  Plus, FileText, ShoppingCart, ClipboardList, Tags, CheckCircle2, FileCheck,
 } from "lucide-react";
 import { db } from "@/db";
-import { customers, suppliers, documents, bankAccounts, payments } from "@/db/schema";
+import { customers, suppliers, documents, bankAccounts, payments, bookingOrders } from "@/db/schema";
 import { PageHeader } from "@/components/ui";
 import { formatFils, toAed } from "@/lib/money";
 import { agedReceivables, agedPayables, BUCKET_KEYS, BUCKET_LABELS } from "@/lib/reports";
@@ -20,6 +20,8 @@ type Metrics = {
   aging: { bucket: string; Receivables: number; Payables: number }[];
   cashByAccount: { name: string; value: number }[];
   recent: { type: string; number: string; party: string; total: number; status: string; date: string; href: string }[];
+  bo: { total: number; draft: number; confirmed: number; invoiced: number };
+  recentBos: { number: string; party: string; total: number; currency: string; status: string; date: string; id: number }[];
 };
 
 async function loadMetrics(): Promise<Metrics | null> {
@@ -76,6 +78,19 @@ async function loadMetrics(): Promise<Metrics | null> {
     const hrefBase: Record<string, string> = { invoice: "/invoices", purchase_order: "/purchase-orders" };
     const typeLabel: Record<string, string> = { invoice: "Invoice", purchase_order: "Purchase order" };
 
+    const [boTotal, boDraft, boConfirmed, boInvoiced] = await Promise.all([
+      db.$count(bookingOrders, eq(bookingOrders.companyId, COMPANY_ID)),
+      db.$count(bookingOrders, and(eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.status, "draft"))),
+      db.$count(bookingOrders, and(eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.status, "confirmed"))),
+      db.$count(bookingOrders, and(eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.status, "invoiced"))),
+    ]);
+    const recentBos = await db
+      .select({ id: bookingOrders.id, number: bookingOrders.number, party: bookingOrders.toName, total: bookingOrders.grandTotalFils, currency: bookingOrders.currency, status: bookingOrders.status, date: bookingOrders.issueDate })
+      .from(bookingOrders)
+      .where(eq(bookingOrders.companyId, COMPANY_ID))
+      .orderBy(desc(bookingOrders.id))
+      .limit(6);
+
     const overdue = (["b1_30", "b31_60", "b61_90", "b90"] as const).reduce((s, b) => s + recv.totals[b], 0);
     const aging = BUCKET_KEYS.map((b) => ({ bucket: BUCKET_LABELS[b].replace(" days", ""), Receivables: toAed(recv.totals[b]), Payables: toAed(pay.totals[b]) }));
 
@@ -89,6 +104,8 @@ async function loadMetrics(): Promise<Metrics | null> {
         party: (d.type === "invoice" ? d.custName : d.suppName) ?? "—",
         total: d.total, status: d.status, date: d.date, href: `${hrefBase[d.type]}/${d.id}`,
       })),
+      bo: { total: boTotal, draft: boDraft, confirmed: boConfirmed, invoiced: boInvoiced },
+      recentBos: recentBos.map((b) => ({ number: b.number, party: b.party ?? "—", total: b.total, currency: b.currency, status: b.status, date: b.date, id: b.id })),
     };
   } catch {
     return null;
@@ -116,11 +133,38 @@ export default async function Dashboard() {
     { label: "Overdue", value: formatFils(m.overdue), sub: "past due date", icon: AlertTriangle, accent: "from-danger to-[#8f1e18]", href: "/reports/aged-receivables" },
   ];
 
+  const boStats = [
+    { label: "Booking Orders", value: String(m.bo.total), sub: "all time", icon: ClipboardList, accent: "from-ink to-ink-2", href: "/booking-orders" },
+    { label: "Draft", value: String(m.bo.draft), sub: "not yet sent", icon: FileText, accent: "from-[#6b7280] to-[#4b5563]", href: "/booking-orders" },
+    { label: "Awaiting invoice", value: String(m.bo.confirmed), sub: "confirmed", icon: CheckCircle2, accent: "from-teal to-teal-ink", href: "/booking-orders" },
+    { label: "Invoiced", value: String(m.bo.invoiced), sub: "billed", icon: FileCheck, accent: "from-[#c2894e] to-[#a06c34]", href: "/booking-orders" },
+  ];
+
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle="Your money in and money out, at a glance." />
+      <PageHeader title="Dashboard" subtitle="Your bookings, sales and cash, at a glance." />
 
-      {/* Stat cards */}
+      {/* Booking Order pipeline */}
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Booking Orders</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {boStats.map((s) => {
+          const Icon = s.icon;
+          return (
+            <Link key={s.label} href={s.href} className="group relative overflow-hidden rounded-2xl border border-line bg-surface p-5 transition-shadow hover:shadow-lg hover:shadow-ink/5">
+              <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.accent}`} />
+              <div className="flex items-start justify-between">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted">{s.label}</div>
+                <div className={`grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br ${s.accent} text-white`}><Icon size={16} /></div>
+              </div>
+              <div className="mt-3 font-display text-2xl font-semibold text-ink tnum">{s.value}</div>
+              <div className="mt-1 text-xs text-muted">{s.sub}</div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Money stat cards */}
+      <div className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-muted">Finance</div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => {
           const Icon = s.icon;
@@ -154,6 +198,29 @@ export default async function Dashboard() {
         </div>
       </div>
 
+      {/* Recent booking orders */}
+      <div className="mt-5 rounded-2xl border border-line bg-surface">
+        <div className="flex items-center justify-between border-b border-line px-5 py-3">
+          <h2 className="font-display text-lg font-semibold text-ink">Recent booking orders</h2>
+          <Link href="/booking-orders" className="text-xs font-medium text-teal-ink hover:underline">View all →</Link>
+        </div>
+        {m.recentBos.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-muted">No booking orders yet. <Link href="/booking-orders/new" className="text-teal-ink hover:underline">Create one</Link>.</div>
+        ) : (
+          <div className="divide-y divide-line">
+            {m.recentBos.map((b) => (
+              <Link key={b.id} href={`/booking-orders/${b.id}`} className="flex items-baseline justify-between gap-3 px-5 py-3 hover:bg-bg">
+                <div className="min-w-0">
+                  <span className="font-medium text-ink tnum">{b.number}</span>
+                  <span className="ml-2 text-xs text-muted">{b.party} · <span className="capitalize">{b.status}</span> · {b.date}</span>
+                </div>
+                <span className="tnum whitespace-nowrap font-medium text-ink">{b.currency} {formatFils(b.total, { withSymbol: false })}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Recent + quick actions */}
       <div className="mt-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-2xl border border-line bg-surface">
@@ -183,10 +250,11 @@ export default async function Dashboard() {
           <h2 className="mb-3 font-display text-lg font-semibold text-ink">Quick actions</h2>
           <div className="space-y-2">
             {[
+              { href: "/booking-orders/new", label: "New booking order", icon: ClipboardList },
+              { href: "/rate-cards/new", label: "New rate card", icon: Tags },
               { href: "/invoices/new", label: "New invoice", icon: FileText },
               { href: "/purchase-orders/new", label: "New purchase order", icon: ShoppingCart },
               { href: "/receipts/new", label: "Record receipt", icon: Plus },
-              { href: "/payments/new", label: "Record payment", icon: Plus },
             ].map((a) => {
               const Icon = a.icon;
               return (
