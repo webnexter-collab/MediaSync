@@ -30,6 +30,7 @@ type Line = {
   uom: string;
   unitGross: string;
   discountPct: string;
+  unitCost: string;
   days: number[];
 };
 
@@ -61,7 +62,7 @@ const MEDIA_LABEL: Record<string, string> = {
 const emptyLine = (): Line => ({
   mediaType: "digital", channelId: null, platform: "", particulars: "",
   brandingDetails: "", period: "", quantity: "1", uom: "", unitGross: "0", discountPct: "0",
-  days: [],
+  unitCost: "0", days: [],
 });
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -105,7 +106,7 @@ export function BookingOrderForm({
   const [vatRate, setVatRate] = useState(defaults?.vatRatePct ?? "5");
 
   const totals = useMemo(() => computeBoTotals(
-    lines.map((l) => ({ quantity: num(l.quantity), unitGrossFils: toFils(l.unitGross), discountPct: num(l.discountPct) })),
+    lines.map((l) => ({ quantity: num(l.quantity), unitGrossFils: toFils(l.unitGross), discountPct: num(l.discountPct), unitCostFils: toFils(l.unitCost) })),
     num(agencyDisc), num(vatRate),
   ).totals, [lines, agencyDisc, vatRate]);
 
@@ -155,6 +156,7 @@ export function BookingOrderForm({
 
   const cur = (fils: number) => formatFils(fils, { currency, withSymbol: false });
   const lineNet = (l: Line) => Math.round(num(l.quantity) * toFils(l.unitGross) * (1 - num(l.discountPct) / 100));
+  const lineMargin = (l: Line) => lineNet(l) - Math.round(num(l.quantity) * toFils(l.unitCost));
 
   return (
     <form action={formAction} className="space-y-6">
@@ -219,7 +221,9 @@ export function BookingOrderForm({
               <th className="w-20 px-3 py-2.5 font-medium">UOM</th>
               <th className="w-28 px-3 py-2.5 text-right font-medium">Unit Gross</th>
               <th className="w-16 px-3 py-2.5 text-right font-medium">Disc %</th>
+              <th className="w-24 px-3 py-2.5 text-right font-medium">Unit Cost</th>
               <th className="w-28 px-3 py-2.5 text-right font-medium">Total Net</th>
+              <th className="w-24 px-3 py-2.5 text-right font-medium">Margin</th>
               <th className="w-8 px-2 py-2.5" />
             </tr>
           </thead>
@@ -257,7 +261,9 @@ export function BookingOrderForm({
                 <td className="px-3 py-2"><input value={l.uom} onChange={(e) => setLine(i, { uom: e.target.value })} placeholder="Article" className={inp} /></td>
                 <td className="px-3 py-2"><input value={l.unitGross} onChange={(e) => setLine(i, { unitGross: e.target.value })} inputMode="decimal" className={inpR} /></td>
                 <td className="px-3 py-2"><input value={l.discountPct} onChange={(e) => setLine(i, { discountPct: e.target.value })} inputMode="decimal" className={inpR} /></td>
+                <td className="px-3 py-2"><input value={l.unitCost} onChange={(e) => setLine(i, { unitCost: e.target.value })} inputMode="decimal" className={inpR} title="Internal cost payable to publisher" /></td>
                 <td className="px-3 py-2 text-right tnum text-muted">{cur(lineNet(l))}</td>
+                <td className={`px-3 py-2 text-right tnum ${lineMargin(l) < 0 ? "text-danger" : "text-teal-ink"}`}>{cur(lineMargin(l))}</td>
                 <td className="px-2 py-2 text-center">
                   <button type="button" onClick={() => setLines((p) => (p.length > 1 ? p.filter((_, idx) => idx !== i) : p))} className="text-muted hover:text-danger" aria-label="Remove line">✕</button>
                 </td>
@@ -332,6 +338,11 @@ export function BookingOrderForm({
             <div className="mt-2 flex items-center justify-between rounded-lg bg-ink px-4 py-3 text-white">
               <dt className="text-xs uppercase tracking-wide text-white/70">Net Amount (incl. VAT)</dt>
               <dd className="font-display text-lg font-semibold tnum">{currency} {cur(totals.grandTotalFils)}</dd>
+            </div>
+            <div className="mt-3 rounded-lg border border-dashed border-line-2 bg-bg/40 p-3">
+              <div className="mb-1 text-[10px] uppercase tracking-wide text-muted">Internal — not shown on the PDF</div>
+              <div className="flex justify-between text-sm"><dt className="text-muted">Media cost</dt><dd className="tnum">{cur(totals.totalCostFils)}</dd></div>
+              <div className="flex justify-between text-sm"><dt className="text-muted">Margin</dt><dd className={`tnum font-medium ${totals.marginFils < 0 ? "text-danger" : "text-teal-ink"}`}>{cur(totals.marginFils)}{totals.totalNetFils > 0 ? ` (${Math.round((totals.marginFils / totals.totalNetFils) * 100)}%)` : ""}</dd></div>
             </div>
           </dl>
         </div>

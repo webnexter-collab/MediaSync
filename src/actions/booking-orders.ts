@@ -53,7 +53,8 @@ function parse(formData: FormData): Parsed {
 function lineValues(boId: number, data: BookingOrderInput) {
   return data.lines.map((l, i) => {
     const unitGrossFils = toFils(l.unitGross);
-    const r = computeBoLine({ quantity: l.quantity, unitGrossFils, discountPct: l.discountPct });
+    const unitCostFils = toFils(l.unitCost);
+    const r = computeBoLine({ quantity: l.quantity, unitGrossFils, discountPct: l.discountPct, unitCostFils });
     return {
       bookingOrderId: boId,
       lineNo: i + 1,
@@ -70,6 +71,8 @@ function lineValues(boId: number, data: BookingOrderInput) {
       unitNetFils: r.unitNetFils,
       lineGrossFils: r.lineGrossFils,
       lineNetFils: r.lineNetFils,
+      unitCostFils,
+      lineCostFils: r.lineCostFils,
       annexure: JSON.stringify([...(l.days ?? [])].sort((a, b) => a - b)),
     };
   });
@@ -81,6 +84,7 @@ function headerTotals(data: BookingOrderInput) {
       quantity: l.quantity,
       unitGrossFils: toFils(l.unitGross),
       discountPct: l.discountPct,
+      unitCostFils: toFils(l.unitCost),
     })),
     data.agencyDiscountPct,
     data.vatRatePct,
@@ -126,6 +130,8 @@ export async function createBookingOrder(_prev: FormState, formData: FormData): 
           totalNetFils: t.totalNetFils,
           vatFils: t.vatFils,
           grandTotalFils: t.grandTotalFils,
+          totalCostFils: t.totalCostFils,
+          marginFils: t.marginFils,
           notes: data.notes,
           terms: data.terms,
           createdBy: session?.userId ?? null,
@@ -177,6 +183,8 @@ export async function updateBookingOrder(
           totalNetFils: t.totalNetFils,
           vatFils: t.vatFils,
           grandTotalFils: t.grandTotalFils,
+          totalCostFils: t.totalCostFils,
+          marginFils: t.marginFils,
           notes: data.notes,
           terms: data.terms,
           updatedAt: new Date(),

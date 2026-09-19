@@ -121,6 +121,13 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
             <div className="flex justify-between border-t border-line pt-2"><dt className="text-muted">Total Net</dt><dd className="tnum">{cur(bo.totalNetFils)}</dd></div>
             <div className="flex justify-between"><dt className="text-muted">VAT ({Number(bo.vatRatePct)}%)</dt><dd className="tnum">{formatFils(bo.vatFils, { withSymbol: false })}</dd></div>
             <div className="mt-1 flex items-center justify-between rounded-lg bg-ink px-4 py-3 text-white"><dt className="text-xs uppercase tracking-wide text-white/70">Net (incl. VAT)</dt><dd className="font-display text-base font-semibold tnum">{cur(bo.grandTotalFils)}</dd></div>
+            {(bo.totalCostFils > 0 || bo.marginFils !== bo.totalNetFils) && (
+              <div className="mt-3 rounded-lg border border-dashed border-line-2 bg-bg/40 p-3">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted">Internal — profitability</div>
+                <div className="flex justify-between text-sm"><dt className="text-muted">Media cost</dt><dd className="tnum">{cur(bo.totalCostFils)}</dd></div>
+                <div className="flex justify-between text-sm"><dt className="text-muted">Margin</dt><dd className={`tnum font-medium ${bo.marginFils < 0 ? "text-danger" : "text-teal-ink"}`}>{cur(bo.marginFils)}{bo.totalNetFils > 0 ? ` (${Math.round((bo.marginFils / bo.totalNetFils) * 100)}%)` : ""}</dd></div>
+              </div>
+            )}
           </dl>
         </div>
       </div>

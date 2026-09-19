@@ -52,6 +52,7 @@ export default async function EditBookingOrder({ params }: { params: Promise<{ i
       uom: l.uom ?? "",
       unitGross: String((l.unitGrossFils ?? 0) / 100),
       discountPct: String(Number(l.discountPct)),
+      unitCost: String((l.unitCostFils ?? 0) / 100),
       days: (() => { try { const a = JSON.parse(l.annexure ?? "[]"); return Array.isArray(a) ? a.filter((n: unknown) => typeof n === "number") : []; } catch { return []; } })(),
     })),
   };

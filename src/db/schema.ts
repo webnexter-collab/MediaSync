@@ -668,6 +668,9 @@ export const bookingOrders = pgTable(
     totalNetFils: bigint("total_net_fils", { mode: "number" }).default(0).notNull(),
     vatFils: bigint("vat_fils", { mode: "number" }).default(0).notNull(),
     grandTotalFils: bigint("grand_total_fils", { mode: "number" }).default(0).notNull(),
+    // Buy-side (internal): total media cost payable, and margin = net - cost.
+    totalCostFils: bigint("total_cost_fils", { mode: "number" }).default(0).notNull(),
+    marginFils: bigint("margin_fils", { mode: "number" }).default(0).notNull(),
 
     notes: text("notes"),
     terms: text("terms"), // null = use default T&C content
@@ -702,7 +705,10 @@ export const bookingOrderLines = pgTable(
     unitNetFils: bigint("unit_net_fils", { mode: "number" }).default(0).notNull(),
     lineGrossFils: bigint("line_gross_fils", { mode: "number" }).default(0).notNull(),
     lineNetFils: bigint("line_net_fils", { mode: "number" }).default(0).notNull(),
-    annexure: text("annexure"), // JSON: per-day schedule (added later)
+    // Buy-side (internal): unit cost payable to the publisher, and line cost.
+    unitCostFils: bigint("unit_cost_fils", { mode: "number" }).default(0).notNull(),
+    lineCostFils: bigint("line_cost_fils", { mode: "number" }).default(0).notNull(),
+    annexure: text("annexure"), // JSON: per-day schedule
   },
   (t) => ({
     boLineIdx: index("bo_line_idx").on(t.bookingOrderId, t.lineNo),

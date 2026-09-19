@@ -12,12 +12,14 @@ export interface BoLineInput {
   quantity: number;
   unitGrossFils: number;
   discountPct: number; // 0..100
+  unitCostFils?: number; // buy-side (internal)
 }
 
 export interface BoLineResult {
   unitNetFils: number;
   lineGrossFils: number;
   lineNetFils: number;
+  lineCostFils: number;
 }
 
 export interface BoTotals {
@@ -27,6 +29,8 @@ export interface BoTotals {
   totalNetFils: number;
   vatFils: number;
   grandTotalFils: number;
+  totalCostFils: number;
+  marginFils: number;
 }
 
 const r = Math.round;
@@ -36,7 +40,8 @@ export function computeBoLine(l: BoLineInput): BoLineResult {
   const unitNetFils = r(l.unitGrossFils * (1 - disc / 100));
   const lineGrossFils = r(l.quantity * l.unitGrossFils);
   const lineNetFils = r(l.quantity * unitNetFils);
-  return { unitNetFils, lineGrossFils, lineNetFils };
+  const lineCostFils = r(l.quantity * (l.unitCostFils || 0));
+  return { unitNetFils, lineGrossFils, lineNetFils, lineCostFils };
 }
 
 export function computeBoTotals(
@@ -46,12 +51,14 @@ export function computeBoTotals(
 ): { totals: BoTotals; lines: BoLineResult[] } {
   let totalGrossFils = 0;
   let totalNetBeforeAgencyFils = 0;
+  let totalCostFils = 0;
   const results: BoLineResult[] = [];
 
   for (const l of lines) {
     const res = computeBoLine(l);
     totalGrossFils += res.lineGrossFils;
     totalNetBeforeAgencyFils += res.lineNetFils;
+    totalCostFils += res.lineCostFils;
     results.push(res);
   }
 
@@ -61,6 +68,7 @@ export function computeBoTotals(
   const totalNetFils = totalNetBeforeAgencyFils - agencyDiscountFils;
   const vatFils = r((totalNetFils * (vatRatePct || 0)) / 100);
   const grandTotalFils = totalNetFils + vatFils;
+  const marginFils = totalNetFils - totalCostFils;
 
   return {
     totals: {
@@ -70,6 +78,8 @@ export function computeBoTotals(
       totalNetFils,
       vatFils,
       grandTotalFils,
+      totalCostFils,
+      marginFils,
     },
     lines: results,
   };
