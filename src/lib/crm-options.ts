@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, currencies, suppliers, mediaChannels } from "@/db/schema";
+import { customers, currencies, suppliers, mediaChannels, rateCards, rateCardItems } from "@/db/schema";
 import type { AccountFormOptions } from "@/lib/form-fields";
 
 const COMPANY_ID = 1;
@@ -23,14 +23,41 @@ export async function getBookingOrderFormOptions() {
         .from(mediaChannels).where(and(eq(mediaChannels.companyId, COMPANY_ID), eq(mediaChannels.isActive, true)))
         .orderBy(asc(mediaChannels.name)),
     ]);
+
+    const rateRows = await db
+      .select({
+        id: rateCardItems.id, mediaType: rateCardItems.mediaType, platform: rateCardItems.platform,
+        particulars: rateCardItems.particulars, brandingDetails: rateCardItems.brandingDetails,
+        uom: rateCardItems.uom, unitGrossFils: rateCardItems.unitGrossFils, channelId: rateCardItems.channelId,
+        defaultDiscountPct: rateCardItems.defaultDiscountPct, cardName: rateCards.name, cardCurrency: rateCards.currency,
+      })
+      .from(rateCardItems)
+      .innerJoin(rateCards, eq(rateCardItems.rateCardId, rateCards.id))
+      .where(and(eq(rateCards.companyId, COMPANY_ID), eq(rateCards.isActive, true), eq(rateCardItems.isActive, true)))
+      .orderBy(asc(rateCards.name), asc(rateCardItems.sortOrder));
+
+    const rateItems = rateRows.map((r) => ({
+      id: r.id,
+      label: `${r.cardName} — ${r.particulars || r.platform || "item"} (${r.cardCurrency} ${(r.unitGrossFils / 100).toLocaleString("en-AE", { minimumFractionDigits: 2 })})`,
+      mediaType: r.mediaType,
+      channelId: r.channelId,
+      platform: r.platform ?? "",
+      particulars: r.particulars ?? "",
+      brandingDetails: r.brandingDetails ?? "",
+      uom: r.uom ?? "",
+      unitGross: String(r.unitGrossFils / 100),
+      discountPct: String(Number(r.defaultDiscountPct)),
+    }));
+
     return {
       vendors,
       accounts,
       currencies: curr.length ? curr : [{ code: "AED", name: "UAE Dirham" }],
       channels,
+      rateItems,
     };
   } catch {
-    return { vendors: [], accounts: [], currencies: [{ code: "AED", name: "UAE Dirham" }], channels: [] };
+    return { vendors: [], accounts: [], currencies: [{ code: "AED", name: "UAE Dirham" }], channels: [], rateItems: [] };
   }
 }
 

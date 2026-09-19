@@ -13,6 +13,11 @@ export type VendorOpt = { id: number; code: string; name: string };
 export type AccountOpt = { id: number; code: string; name: string; accountType: string };
 export type CurrencyOpt = { code: string; name: string };
 export type ChannelOpt = { id: number; name: string; mediaType: string };
+export type RateItemOpt = {
+  id: number; label: string; mediaType: string; channelId: number | null;
+  platform: string; particulars: string; brandingDetails: string; uom: string;
+  unitGross: string; discountPct: string;
+};
 
 type Line = {
   mediaType: string;
@@ -76,13 +81,14 @@ const inp = "field h-9 w-full rounded-md border border-line-2 bg-surface px-2 te
 const inpR = inp + " tnum text-right";
 
 export function BookingOrderForm({
-  action, vendors, accounts, currencies, channels, defaults, submitLabel, cancelHref = "/booking-orders",
+  action, vendors, accounts, currencies, channels, rateItems = [], defaults, submitLabel, cancelHref = "/booking-orders",
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   vendors: VendorOpt[];
   accounts: AccountOpt[];
   currencies: CurrencyOpt[];
   channels: ChannelOpt[];
+  rateItems?: RateItemOpt[];
   defaults?: BoDefaults;
   submitLabel: string;
   cancelHref?: string;
@@ -120,6 +126,17 @@ export function BookingOrderForm({
     const ch = channels.find((c) => c.id === id);
     if (!ch) return;
     setLine(i, { channelId: id, platform: ch.name, mediaType: ch.mediaType });
+  };
+
+  const onPickRate = (i: number, id: number | null) => {
+    if (id === null) return;
+    const r = rateItems.find((x) => x.id === id);
+    if (!r) return;
+    setLine(i, {
+      mediaType: r.mediaType, channelId: r.channelId, platform: r.platform,
+      particulars: r.particulars, brandingDetails: r.brandingDetails, uom: r.uom,
+      unitGross: r.unitGross, discountPct: r.discountPct,
+    });
   };
 
   const onPickAccount = (val: string) => {
@@ -214,7 +231,13 @@ export function BookingOrderForm({
                     {mediaTypeValues.map((m) => <option key={m} value={m}>{MEDIA_LABEL[m]}</option>)}
                   </select>
                 </td>
-                <td className="px-3 py-2" style={{ minWidth: 150 }}>
+                <td className="px-3 py-2" style={{ minWidth: 160 }}>
+                  {rateItems.length > 0 && (
+                    <select value="" onChange={(e) => onPickRate(i, e.target.value ? Number(e.target.value) : null)} className={inp + " mb-1 text-teal-ink"}>
+                      <option value="">⚡ From rate card…</option>
+                      {rateItems.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                    </select>
+                  )}
                   {channels.length > 0 && (
                     <select value={l.channelId ?? ""} onChange={(e) => onPickChannel(i, e.target.value ? Number(e.target.value) : null)} className={inp + " mb-1"}>
                       <option value="">Free text…</option>

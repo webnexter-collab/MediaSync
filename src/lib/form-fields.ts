@@ -134,6 +134,20 @@ export function currencyFields(
   ];
 }
 
+export function rateCardFields(
+  row?: typeof import("@/db/schema").rateCards.$inferSelect,
+  currencies: { value: string; label: string }[] = [{ value: "AED", label: "AED" }],
+): FieldDef[] {
+  return [
+    { name: "name", label: "Rate card name", required: true, half: true, placeholder: "The National — 2026 Rates", defaultValue: row?.name },
+    { name: "currency", label: "Currency", type: "select", half: true, options: currencies, defaultValue: row?.currency ?? "AED" },
+    { name: "validFrom", label: "Valid from", type: "date", half: true, defaultValue: row?.validFrom ?? undefined },
+    { name: "validTo", label: "Valid to", type: "date", half: true, defaultValue: row?.validTo ?? undefined },
+    { name: "notes", label: "Notes", type: "textarea", defaultValue: row?.notes ?? undefined },
+    { name: "isActive", label: "Active", type: "toggle", defaultValue: row ? row.isActive : true },
+  ];
+}
+
 const ACCT_TYPE_OPTIONS = [
   { value: "bank", label: "Bank account" },
   { value: "cash", label: "Cash / petty cash" },

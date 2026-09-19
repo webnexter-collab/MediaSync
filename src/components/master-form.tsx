@@ -9,7 +9,7 @@ import type { FormState } from "@/lib/validators";
 export type FieldDef = {
   name: string;
   label: string;
-  type?: "text" | "email" | "number" | "textarea" | "toggle" | "select";
+  type?: "text" | "email" | "number" | "textarea" | "toggle" | "select" | "date";
   placeholder?: string;
   required?: boolean;
   half?: boolean;

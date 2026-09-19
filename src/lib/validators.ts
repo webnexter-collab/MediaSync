@@ -312,3 +312,33 @@ export const bookingOrderSchema = z.object({
   lines: z.array(bookingOrderLineSchema).min(1, "Add at least one line"),
 });
 export type BookingOrderInput = z.infer<typeof bookingOrderSchema>;
+
+/* ---------------- Rate Cards ---------------- */
+
+const optDate = z
+  .string()
+  .optional()
+  .transform((v) => (v ? v : undefined))
+  .refine((v) => v === undefined || /^\d{4}-\d{2}-\d{2}$/.test(v), "Invalid date");
+
+export const rateCardSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(160),
+  currency: z.string().trim().min(3).max(3).default("AED"),
+  validFrom: optDate,
+  validTo: optDate,
+  notes: optionalStr,
+  isActive: z.coerce.boolean().default(true),
+});
+export type RateCardInput = z.infer<typeof rateCardSchema>;
+
+export const rateCardItemSchema = z.object({
+  mediaType: z.enum(mediaTypeValues).default("digital"),
+  channelId: nullableId,
+  platform: optionalStr,
+  particulars: optionalStr,
+  brandingDetails: optionalStr,
+  uom: optionalStr,
+  unitGross: z.coerce.number().min(0).default(0), // major units of the card currency
+  defaultDiscountPct: z.coerce.number().min(0).max(100).default(0),
+});
+export type RateCardItemInput = z.infer<typeof rateCardItemSchema>;

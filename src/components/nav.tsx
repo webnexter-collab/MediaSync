@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FileText, ReceiptText, Truck, HandCoins, ShoppingCart,
   Banknote, Users, Building2, Package, Landmark, TrendingUp, TrendingDown,
   FileUser, FileBox, ShieldCheck, LogOut, Settings, X, Megaphone, Coins,
-  Percent, ClipboardList, type LucideIcon,
+  Percent, ClipboardList, Tags, type LucideIcon,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import type { Role } from "@/lib/session";
@@ -18,6 +18,7 @@ const groups: Group[] = [
   { title: "Overview", items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }] },
   { title: "Bookings", items: [
     { href: "/booking-orders", label: "Booking Orders", icon: ClipboardList },
+    { href: "/rate-cards", label: "Rate Cards", icon: Tags },
   ]},
   { title: "Sales", items: [
     { href: "/quotations", label: "Quotations", icon: FileText },

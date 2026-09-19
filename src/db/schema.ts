@@ -708,3 +708,52 @@ export const bookingOrderLines = pgTable(
     boLineIdx: index("bo_line_idx").on(t.bookingOrderId, t.lineNo),
   }),
 );
+
+/* ============================================================================
+ * RATE CARDS — reusable priced offerings that pre-fill Booking Order lines.
+ *   Flat model (matches BO lines): one item table across all media types.
+ *   unit_gross_fils = minor units of the rate card's currency.
+ * ========================================================================== */
+
+export const rateCards = pgTable(
+  "rate_cards",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    name: varchar("name", { length: 160 }).notNull(),
+    currency: varchar("currency", { length: 3 }).default("AED").notNull(),
+    validFrom: date("valid_from"),
+    validTo: date("valid_to"),
+    isActive: boolean("is_active").default(true).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    rateCardNameIdx: index("rate_card_name_idx").on(t.companyId, t.name),
+  }),
+);
+
+export const rateCardItems = pgTable(
+  "rate_card_items",
+  {
+    id: serial("id").primaryKey(),
+    rateCardId: integer("rate_card_id")
+      .notNull()
+      .references(() => rateCards.id, { onDelete: "cascade" }),
+    mediaType: mediaTypeEnum("media_type").default("digital").notNull(),
+    channelId: integer("channel_id").references(() => mediaChannels.id),
+    platform: varchar("platform", { length: 200 }),
+    particulars: text("particulars"),
+    brandingDetails: text("branding_details"),
+    uom: varchar("uom", { length: 40 }),
+    unitGrossFils: bigint("unit_gross_fils", { mode: "number" }).default(0).notNull(),
+    defaultDiscountPct: numeric("default_discount_pct", { precision: 5, scale: 2 }).default("0").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+  },
+  (t) => ({
+    rateCardItemIdx: index("rate_card_item_idx").on(t.rateCardId, t.sortOrder),
+  }),
+);

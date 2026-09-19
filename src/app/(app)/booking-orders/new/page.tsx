@@ -18,6 +18,7 @@ export default async function NewBookingOrder() {
             accounts={opts.accounts}
             currencies={opts.currencies}
             channels={opts.channels}
+            rateItems={opts.rateItems}
             submitLabel="Create booking order"
           />
         </div>

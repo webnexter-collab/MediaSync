@@ -43,6 +43,13 @@
       "when": 1789809010787,
       "tag": "0005_booking_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789827322600,
+      "tag": "0006_rate_cards",
+      "breakpoints": true
     }
   ]
 }
