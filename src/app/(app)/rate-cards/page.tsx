@@ -15,6 +15,7 @@ export default async function RateCardsPage() {
     rows = await db
       .select({
         id: rateCards.id, companyId: rateCards.companyId, name: rateCards.name,
+        businessUnitId: rateCards.businessUnitId,
         currency: rateCards.currency, validFrom: rateCards.validFrom, validTo: rateCards.validTo,
         isActive: rateCards.isActive, notes: rateCards.notes, createdAt: rateCards.createdAt,
         itemCount: sql<number>`count(${rateCardItems.id})`.mapWith(Number),

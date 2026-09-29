@@ -108,11 +108,16 @@ export const mediaTypeEnum = pgEnum("media_type", [
   "radio",
   "tv",
   "website",
+  "outdoor",
 ]);
 
 // Lifecycle of a Media Booking Order.
+// draft → pending_approval (submitted) → approved (Account Group Manager, after
+// client confirmation) → sent/invoiced. approved+ count as revenue in the Tracker.
 export const bookingOrderStatusEnum = pgEnum("booking_order_status", [
   "draft",
+  "pending_approval",
+  "approved",
   "sent",
   "confirmed",
   "cancelled",
@@ -196,6 +201,10 @@ export const customers = pgTable(
       (): AnyPgColumn => customers.id,
     ),
     agencyCommissionPct: numeric("agency_commission_pct", { precision: 5, scale: 2 }).default("0").notNull(),
+    // Home Business Unit (soft scope; null = shared/all). For agencies, the group.
+    businessUnitId: integer("business_unit_id").references((): AnyPgColumn => businessUnits.id),
+    agencyGroupId: integer("agency_group_id").references((): AnyPgColumn => agencyGroups.id),
+    // Base currency for this party (AED or USD) — defaults the BO currency.
     trn: varchar("trn", { length: 15 }),
     contactPerson: varchar("contact_person", { length: 160 }),
     email: varchar("email", { length: 160 }),
@@ -227,6 +236,7 @@ export const suppliers = pgTable(
       .references(() => companies.id),
     code: varchar("code", { length: 30 }).notNull(), // SUPP-0001
     name: varchar("name", { length: 200 }).notNull(),
+    businessUnitId: integer("business_unit_id").references((): AnyPgColumn => businessUnits.id),
     trn: varchar("trn", { length: 15 }),
     contactPerson: varchar("contact_person", { length: 160 }),
     email: varchar("email", { length: 160 }),
@@ -541,6 +551,7 @@ export const mediaChannels = pgTable(
     mediaType: mediaTypeEnum("media_type").notNull(),
     name: varchar("name", { length: 160 }).notNull(), // "Gulf News", "Radio 1 FM", "example.com"
     code: varchar("code", { length: 30 }).notNull(),
+    businessUnitId: integer("business_unit_id").references((): AnyPgColumn => businessUnits.id),
     // Buy-side vendor (publisher / station / network) this channel is sourced from.
     vendorId: integer("vendor_id").references(() => suppliers.id),
     isActive: boolean("is_active").default(true).notNull(),
@@ -654,9 +665,18 @@ export const bookingOrders = pgTable(
     campaign: varchar("campaign", { length: 200 }),
     medium: varchar("medium", { length: 120 }),
 
+    // MediaSync reporting dimensions
+    businessUnitId: integer("business_unit_id").references((): AnyPgColumn => businessUnits.id),
+    salespersonId: integer("salesperson_id").references((): AnyPgColumn => salespeople.id),
+    industryId: integer("industry_id").references((): AnyPgColumn => industries.id),
+    // Structured CRM links (reports pivot on these; free-text agency/client kept for display).
+    agencyAccountId: integer("agency_account_id").references((): AnyPgColumn => customers.id),
+    clientAccountId: integer("client_account_id").references((): AnyPgColumn => customers.id),
+
     currency: varchar("currency", { length: 3 }).default("AED").notNull(),
     exchangeRate: numeric("exchange_rate", { precision: 18, scale: 8 }).default("1").notNull(),
     issueDate: date("issue_date").notNull(),
+    receiptDate: date("receipt_date"), // "Date BO receipt" — reporting month source
     paymentTerms: varchar("payment_terms", { length: 200 }),
 
     agencyDiscountPct: numeric("agency_discount_pct", { precision: 5, scale: 2 }).default("0").notNull(),
@@ -730,6 +750,7 @@ export const rateCards = pgTable(
       .notNull()
       .references(() => companies.id),
     name: varchar("name", { length: 160 }).notNull(),
+    businessUnitId: integer("business_unit_id").references((): AnyPgColumn => businessUnits.id),
     currency: varchar("currency", { length: 3 }).default("AED").notNull(),
     validFrom: date("valid_from"),
     validTo: date("valid_to"),
@@ -779,5 +800,101 @@ export const rateCardItems = pgTable(
   },
   (t) => ({
     rateCardItemIdx: index("rate_card_item_idx").on(t.rateCardId, t.sortOrder),
+  }),
+);
+
+/* ============================================================================
+ * MEDIASYNC — BUSINESS UNITS, AGENCY GROUPS, SALESPEOPLE, TARGETS, INDUSTRIES
+ *   Single company (Mindset Media) operating multiple Business Units (UAE /
+ *   Beirut / Iraq). Records tag a BU; reporting keys off the BO's BU.
+ * ========================================================================== */
+
+export const businessUnits = pgTable(
+  "business_units",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    name: varchar("name", { length: 80 }).notNull(), // "UAE Media"
+    code: varchar("code", { length: 20 }).notNull(), // "UAE"
+    country: varchar("country", { length: 60 }),
+    defaultCurrency: varchar("default_currency", { length: 3 }).default("USD").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    buCodeUq: uniqueIndex("bu_code_uq").on(t.companyId, t.code),
+  }),
+);
+
+export const agencyGroups = pgTable(
+  "agency_groups",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    name: varchar("name", { length: 120 }).notNull(), // "SMB", "GroupM"
+    isActive: boolean("is_active").default(true).notNull(),
+  },
+  (t) => ({
+    agencyGroupNameUq: uniqueIndex("agency_group_name_uq").on(t.companyId, t.name),
+  }),
+);
+
+export const salespeople = pgTable(
+  "salespeople",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    businessUnitId: integer("business_unit_id").references(() => businessUnits.id),
+    name: varchar("name", { length: 160 }).notNull(),
+    email: varchar("email", { length: 160 }),
+    userId: integer("user_id").references(() => users.id), // optional link to a login
+    isActive: boolean("is_active").default(true).notNull(),
+  },
+  (t) => ({
+    salespersonIdx: index("salesperson_idx").on(t.companyId, t.businessUnitId),
+  }),
+);
+
+export const salesTargets = pgTable(
+  "sales_targets",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    businessUnitId: integer("business_unit_id").references(() => businessUnits.id),
+    salespersonId: integer("salesperson_id")
+      .notNull()
+      .references(() => salespeople.id, { onDelete: "cascade" }),
+    year: integer("year").notNull(),
+    month: integer("month").notNull(), // 1-12
+    // Target amount in minor units of `currency` (USD by default).
+    targetFils: bigint("target_fils", { mode: "number" }).default(0).notNull(),
+    currency: varchar("currency", { length: 3 }).default("USD").notNull(),
+  },
+  (t) => ({
+    targetUq: uniqueIndex("sales_target_uq").on(t.companyId, t.salespersonId, t.year, t.month),
+  }),
+);
+
+export const industries = pgTable(
+  "industries",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    name: varchar("name", { length: 120 }).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+  },
+  (t) => ({
+    industryNameUq: uniqueIndex("industry_name_uq").on(t.companyId, t.name),
   }),
 );
