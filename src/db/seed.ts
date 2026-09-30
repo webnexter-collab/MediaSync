@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "./index";
 import {
@@ -136,25 +136,56 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  // Salespeople (UAE team). Resolve the UAE business unit id first.
-  const [uaeUnit] = await db
-    .select({ id: businessUnits.id })
+  // Resolve business-unit ids by code for the cross-market rollout below.
+  const buRows = await db
+    .select({ id: businessUnits.id, code: businessUnits.code })
     .from(businessUnits)
-    .where(and(eq(businessUnits.companyId, 1), eq(businessUnits.code, "UAE")))
-    .limit(1);
-  if (uaeUnit) {
-    const existing = await db
-      .select({ id: salespeople.id })
-      .from(salespeople)
-      .where(eq(salespeople.companyId, 1))
-      .limit(1);
-    if (existing.length === 0) {
-      await db.insert(salespeople).values(
-        ["Carla Bou Nader", "Management", "Nicolas Antoine Berbari", "Priyanka Raman", "Shakeel Shaikh"]
-          .map((name) => ({ companyId: 1, name, businessUnitId: uaeUnit.id })),
-      );
-    }
+    .where(eq(businessUnits.companyId, 1));
+  const buId: Record<string, number> = Object.fromEntries(buRows.map((b) => [b.code, b.id]));
+
+  // Beirut (Outdoor) & Iraq (TV) publishers — starter records; rename in the UI
+  // to the real media owners once confirmed with Mindset.
+  await db
+    .insert(suppliers)
+    .values([
+      { companyId: 1, code: "VEN-BEI-01", name: "Beirut Outdoor Network", businessUnitId: buId.BEI ?? null, currency: "USD", paymentTermsDays: 30, city: "Beirut" },
+      { companyId: 1, code: "VEN-IRQ-01", name: "Mindset TV — Iraq", businessUnitId: buId.IRQ ?? null, currency: "USD", paymentTermsDays: 30, city: "Baghdad" },
+    ])
+    .onConflictDoNothing();
+
+  const venRows = await db
+    .select({ id: suppliers.id, code: suppliers.code })
+    .from(suppliers)
+    .where(eq(suppliers.companyId, 1));
+  const venId: Record<string, number> = Object.fromEntries(venRows.map((v) => [v.code, v.id]));
+
+  // Beirut Outdoor (OOH) & Iraq TV media channels — starter placeholders.
+  await db
+    .insert(mediaChannels)
+    .values([
+      { companyId: 1, mediaType: "outdoor", name: "Beirut CBD Billboards", code: "OOH-BEI-CBD", businessUnitId: buId.BEI ?? null, vendorId: venId["VEN-BEI-01"] ?? null },
+      { companyId: 1, mediaType: "outdoor", name: "Airport Road Unipoles", code: "OOH-BEI-APT", businessUnitId: buId.BEI ?? null, vendorId: venId["VEN-BEI-01"] ?? null },
+      { companyId: 1, mediaType: "outdoor", name: "Hamra Digital Screens", code: "OOH-BEI-HAM", businessUnitId: buId.BEI ?? null, vendorId: venId["VEN-BEI-01"] ?? null },
+      { companyId: 1, mediaType: "tv", name: "Iraq TV — Primetime", code: "TV-IRQ-PRIME", businessUnitId: buId.IRQ ?? null, vendorId: venId["VEN-IRQ-01"] ?? null },
+      { companyId: 1, mediaType: "tv", name: "Iraq TV — News Bulletin", code: "TV-IRQ-NEWS", businessUnitId: buId.IRQ ?? null, vendorId: venId["VEN-IRQ-01"] ?? null },
+      { companyId: 1, mediaType: "tv", name: "Iraq TV — Sports", code: "TV-IRQ-SPORT", businessUnitId: buId.IRQ ?? null, vendorId: venId["VEN-IRQ-01"] ?? null },
+    ])
+    .onConflictDoNothing();
+
+  // Salespeople per business unit. Seeded once per BU (table has no unique key).
+  const spRows = await db
+    .select({ buId: salespeople.businessUnitId })
+    .from(salespeople)
+    .where(eq(salespeople.companyId, 1));
+  const haveBu = new Set(spRows.map((r) => r.buId));
+  const spToInsert: { companyId: number; name: string; businessUnitId: number }[] = [];
+  if (buId.UAE && !haveBu.has(buId.UAE)) {
+    for (const name of ["Carla Bou Nader", "Management", "Nicolas Antoine Berbari", "Priyanka Raman", "Shakeel Shaikh"])
+      spToInsert.push({ companyId: 1, name, businessUnitId: buId.UAE });
   }
+  if (buId.BEI && !haveBu.has(buId.BEI)) spToInsert.push({ companyId: 1, name: "Beirut Management", businessUnitId: buId.BEI });
+  if (buId.IRQ && !haveBu.has(buId.IRQ)) spToInsert.push({ companyId: 1, name: "Iraq Management", businessUnitId: buId.IRQ });
+  if (spToInsert.length) await db.insert(salespeople).values(spToInsert);
 
   await db
     .insert(items)
