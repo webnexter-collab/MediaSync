@@ -20,6 +20,9 @@ export default async function NewBookingOrder() {
             channels={opts.channels}
             rateItems={opts.rateItems}
             uoms={opts.uoms}
+            businessUnits={opts.businessUnits}
+            salespeople={opts.salespeople}
+            industries={opts.industries}
             submitLabel="Create booking order"
           />
         </div>

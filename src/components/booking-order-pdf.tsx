@@ -106,11 +106,9 @@ function Doc({ data }: { data: BookingOrderPdfData }) {
   const addr = [company.legalName ?? company.name, company.address, company.trn ? `TRN: ${company.trn}` : null]
     .filter(Boolean);
   const partyRows: [string, string | null | undefined][] = [
-    ["To — Publisher", bo.toName],
-    ["Advertiser", bo.advertiser],
+    ["Medium", bo.toName],
     ["Agency", bo.agency],
     ["Client", bo.client],
-    ["Brand", bo.brand],
     ["Campaign", bo.campaign],
   ];
   // Balance the T&C sections across two columns by cumulative length.

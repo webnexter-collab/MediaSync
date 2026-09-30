@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, currencies, suppliers, mediaChannels, rateCards, rateCardItems, uoms } from "@/db/schema";
+import { customers, currencies, suppliers, mediaChannels, rateCards, rateCardItems, uoms, businessUnits, salespeople, industries } from "@/db/schema";
 import type { AccountFormOptions } from "@/lib/form-fields";
 
 const COMPANY_ID = 1;
@@ -9,11 +9,11 @@ const COMPANY_ID = 1;
 /** All the dropdown data the Booking Order builder needs. */
 export async function getBookingOrderFormOptions() {
   try {
-    const [vendors, accounts, curr, channels] = await Promise.all([
+    const [vendors, accounts, curr, channels, units, sales, inds] = await Promise.all([
       db.select({ id: suppliers.id, code: suppliers.code, name: suppliers.name })
         .from(suppliers).where(and(eq(suppliers.companyId, COMPANY_ID), eq(suppliers.isActive, true)))
         .orderBy(asc(suppliers.name)),
-      db.select({ id: customers.id, code: customers.code, name: customers.name, accountType: customers.accountType })
+      db.select({ id: customers.id, code: customers.code, name: customers.name, accountType: customers.accountType, currency: customers.currency })
         .from(customers).where(and(eq(customers.companyId, COMPANY_ID), eq(customers.isActive, true)))
         .orderBy(asc(customers.name)),
       db.select({ code: currencies.code, name: currencies.name })
@@ -22,6 +22,15 @@ export async function getBookingOrderFormOptions() {
       db.select({ id: mediaChannels.id, name: mediaChannels.name, mediaType: mediaChannels.mediaType })
         .from(mediaChannels).where(and(eq(mediaChannels.companyId, COMPANY_ID), eq(mediaChannels.isActive, true)))
         .orderBy(asc(mediaChannels.name)),
+      db.select({ id: businessUnits.id, name: businessUnits.name, code: businessUnits.code, defaultCurrency: businessUnits.defaultCurrency })
+        .from(businessUnits).where(and(eq(businessUnits.companyId, COMPANY_ID), eq(businessUnits.isActive, true)))
+        .orderBy(asc(businessUnits.sortOrder), asc(businessUnits.name)),
+      db.select({ id: salespeople.id, name: salespeople.name, businessUnitId: salespeople.businessUnitId })
+        .from(salespeople).where(and(eq(salespeople.companyId, COMPANY_ID), eq(salespeople.isActive, true)))
+        .orderBy(asc(salespeople.name)),
+      db.select({ id: industries.id, name: industries.name })
+        .from(industries).where(and(eq(industries.companyId, COMPANY_ID), eq(industries.isActive, true)))
+        .orderBy(asc(industries.name)),
     ]);
 
     const uomRows = await db
@@ -62,9 +71,18 @@ export async function getBookingOrderFormOptions() {
       channels,
       rateItems,
       uoms: uomRows.map((u) => u.name),
+      businessUnits: units,
+      salespeople: sales,
+      industries: inds,
     };
   } catch {
-    return { vendors: [], accounts: [], currencies: [{ code: "AED", name: "UAE Dirham" }], channels: [], rateItems: [], uoms: [] as string[] };
+    return {
+      vendors: [], accounts: [], currencies: [{ code: "AED", name: "UAE Dirham" }],
+      channels: [], rateItems: [], uoms: [] as string[],
+      businessUnits: [] as { id: number; name: string; code: string; defaultCurrency: string }[],
+      salespeople: [] as { id: number; name: string; businessUnitId: number | null }[],
+      industries: [] as { id: number; name: string }[],
+    };
   }
 }
 

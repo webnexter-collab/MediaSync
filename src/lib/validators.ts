@@ -232,7 +232,7 @@ export type BankAccountInput = z.infer<typeof bankAccountSchema>;
 
 /* ---------------- Media Channels ---------------- */
 
-export const mediaTypeValues = ["print", "digital", "radio", "tv", "website"] as const;
+export const mediaTypeValues = ["print", "digital", "radio", "tv", "website", "outdoor"] as const;
 
 export const mediaChannelSchema = z.object({
   mediaType: z.enum(mediaTypeValues).default("print"),
@@ -293,6 +293,13 @@ export const bookingOrderLineSchema = z.object({
   days: z.array(z.coerce.number().int().min(1).max(31)).default([]), // annexure schedule
 });
 
+const optionalDate = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (v ? v : undefined))
+  .refine((v) => v === undefined || /^\d{4}-\d{2}-\d{2}$/.test(v), "Invalid date");
+
 export const bookingOrderSchema = z.object({
   toName: optionalStr,
   publisherVendorId: nullableId,
@@ -303,6 +310,13 @@ export const bookingOrderSchema = z.object({
   brand: optionalStr,
   campaign: optionalStr,
   medium: optionalStr,
+  // MediaSync reporting dimensions
+  businessUnitId: nullableId,
+  salespersonId: nullableId,
+  industryId: nullableId,
+  agencyAccountId: nullableId,
+  clientAccountId: nullableId,
+  receiptDate: optionalDate,
   currency: z.string().trim().min(3).max(3).default("AED"),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   paymentTerms: optionalStr,

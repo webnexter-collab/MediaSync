@@ -28,15 +28,18 @@ export default async function EditBookingOrder({ params }: { params: Promise<{ i
   const defaults = {
     toName: bo.toName ?? "",
     publisherVendorId: bo.publisherVendorId,
-    accountId: bo.accountId,
-    advertiser: bo.advertiser ?? "",
     agency: bo.agency ?? "",
     client: bo.client ?? "",
-    brand: bo.brand ?? "",
+    agencyAccountId: bo.agencyAccountId,
+    clientAccountId: bo.clientAccountId,
+    businessUnitId: bo.businessUnitId,
+    salespersonId: bo.salespersonId,
+    industryId: bo.industryId,
     campaign: bo.campaign ?? "",
     medium: bo.medium ?? "",
     currency: bo.currency,
     issueDate: bo.issueDate,
+    receiptDate: bo.receiptDate ?? "",
     paymentTerms: bo.paymentTerms ?? "",
     agencyDiscountPct: String(Number(bo.agencyDiscountPct)),
     vatRatePct: String(Number(bo.vatRatePct)),
@@ -70,6 +73,9 @@ export default async function EditBookingOrder({ params }: { params: Promise<{ i
             channels={opts.channels}
             rateItems={opts.rateItems}
             uoms={opts.uoms}
+            businessUnits={opts.businessUnits}
+            salespeople={opts.salespeople}
+            industries={opts.industries}
             defaults={defaults}
             submitLabel="Update booking order"
             cancelHref={`/booking-orders/${bo.id}`}

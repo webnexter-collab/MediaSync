@@ -10,9 +10,12 @@ import { toFils, formatFils } from "@/lib/money";
 import { computeBoTotals } from "@/lib/booking-order";
 
 export type VendorOpt = { id: number; code: string; name: string };
-export type AccountOpt = { id: number; code: string; name: string; accountType: string };
+export type AccountOpt = { id: number; code: string; name: string; accountType: string; currency?: string };
 export type CurrencyOpt = { code: string; name: string };
 export type ChannelOpt = { id: number; name: string; mediaType: string };
+export type BusinessUnitOpt = { id: number; name: string; code: string; defaultCurrency: string };
+export type SalespersonOpt = { id: number; name: string; businessUnitId: number | null };
+export type IndustryOpt = { id: number; name: string };
 export type RateItemOpt = {
   id: number; label: string; mediaType: string; channelId: number | null;
   platform: string; particulars: string; brandingDetails: string; uom: string;
@@ -39,15 +42,18 @@ const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 export type BoDefaults = {
   toName?: string;
   publisherVendorId?: number | null;
-  accountId?: number | null;
-  advertiser?: string;
   agency?: string;
   client?: string;
-  brand?: string;
+  agencyAccountId?: number | null;
+  clientAccountId?: number | null;
+  businessUnitId?: number | null;
+  salespersonId?: number | null;
+  industryId?: number | null;
   campaign?: string;
   medium?: string;
   currency?: string;
   issueDate?: string;
+  receiptDate?: string;
   paymentTerms?: string;
   agencyDiscountPct?: string;
   vatRatePct?: string;
@@ -56,7 +62,7 @@ export type BoDefaults = {
 };
 
 const MEDIA_LABEL: Record<string, string> = {
-  print: "Print", digital: "Digital", radio: "Radio", tv: "TV", website: "Website",
+  print: "Print", digital: "Digital", radio: "Radio", tv: "TV", website: "Website", outdoor: "Outdoor",
 };
 
 const emptyLine = (): Line => ({
@@ -82,7 +88,9 @@ const inp = "field h-9 w-full rounded-md border border-line-2 bg-surface px-2 te
 const inpR = inp + " tnum text-right";
 
 export function BookingOrderForm({
-  action, vendors, accounts, currencies, channels, rateItems = [], uoms = [], defaults, submitLabel, cancelHref = "/booking-orders",
+  action, vendors, accounts, currencies, channels, rateItems = [], uoms = [],
+  businessUnits = [], salespeople = [], industries = [],
+  defaults, submitLabel, cancelHref = "/booking-orders",
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   vendors: VendorOpt[];
@@ -91,21 +99,28 @@ export function BookingOrderForm({
   channels: ChannelOpt[];
   rateItems?: RateItemOpt[];
   uoms?: string[];
+  businessUnits?: BusinessUnitOpt[];
+  salespeople?: SalespersonOpt[];
+  industries?: IndustryOpt[];
   defaults?: BoDefaults;
   submitLabel: string;
   cancelHref?: string;
 }) {
-  const advertiserNames = accounts.filter((a) => a.accountType === "advertiser").map((a) => a.name);
-  const clientNames = accounts.filter((a) => a.accountType === "direct_client").map((a) => a.name);
-  const MEDIUM_OPTIONS = ["Print", "Digital", "Radio", "TV", "Website"];
+  const agencyAccounts = accounts.filter((a) => a.accountType === "agency" || a.accountType === "buying_house");
+  const clientAccounts = accounts.filter((a) => a.accountType === "direct_client");
+  const MEDIA_OPTIONS = ["Print", "Digital", "Radio", "TV", "Website", "Outdoor"];
   const [state, formAction] = useActionState<FormState, FormData>(action, { ok: false });
   const [lines, setLines] = useState<Line[]>(defaults?.lines?.length ? defaults.lines : [emptyLine()]);
   const [currency, setCurrency] = useState(defaults?.currency ?? "AED");
   const [toName, setToName] = useState(defaults?.toName ?? "");
   const [pubVendorId, setPubVendorId] = useState<string>(defaults?.publisherVendorId != null ? String(defaults.publisherVendorId) : "");
-  const [accountId, setAccountId] = useState<string>(defaults?.accountId != null ? String(defaults.accountId) : "");
+  const [agencyId, setAgencyId] = useState<string>(defaults?.agencyAccountId != null ? String(defaults.agencyAccountId) : "");
+  const [clientId, setClientId] = useState<string>(defaults?.clientAccountId != null ? String(defaults.clientAccountId) : "");
   const [agency, setAgency] = useState(defaults?.agency ?? "");
   const [client, setClient] = useState(defaults?.client ?? "");
+  const [businessUnitId, setBusinessUnitId] = useState<string>(defaults?.businessUnitId != null ? String(defaults.businessUnitId) : (businessUnits[0] ? String(businessUnits[0].id) : ""));
+  const [salespersonId, setSalespersonId] = useState<string>(defaults?.salespersonId != null ? String(defaults.salespersonId) : "");
+  const [industryId, setIndustryId] = useState<string>(defaults?.industryId != null ? String(defaults.industryId) : "");
   const [agencyDisc, setAgencyDisc] = useState(defaults?.agencyDiscountPct ?? "0");
   const [vatRate, setVatRate] = useState(defaults?.vatRatePct ?? "5");
   const [medium, setMedium] = useState(defaults?.medium ?? "");
@@ -145,12 +160,23 @@ export function BookingOrderForm({
     });
   };
 
-  const onPickAccount = (val: string) => {
-    setAccountId(val);
+  const onPickAgency = (val: string) => {
+    setAgencyId(val);
     const a = accounts.find((x) => String(x.id) === val);
-    if (!a) return;
-    if (a.accountType === "agency" || a.accountType === "buying_house") setAgency(a.name);
-    else setClient(a.name);
+    if (a) {
+      setAgency(a.name);
+      // Agency currency defaults the BO only when no client is chosen (client wins).
+      if (!clientId && a.currency) setCurrency(a.currency);
+    }
+  };
+
+  const onPickClient = (val: string) => {
+    setClientId(val);
+    const a = accounts.find((x) => String(x.id) === val);
+    if (a) {
+      setClient(a.name);
+      if (a.currency) setCurrency(a.currency); // client base currency wins
+    }
   };
 
   const onPickVendor = (val: string) => {
@@ -167,12 +193,16 @@ export function BookingOrderForm({
     <form action={formAction} className="space-y-6">
       <input type="hidden" name="lines" value={JSON.stringify(lines)} />
       <input type="hidden" name="publisherVendorId" value={pubVendorId} />
-      <input type="hidden" name="accountId" value={accountId} />
+      <input type="hidden" name="agencyAccountId" value={agencyId} />
+      <input type="hidden" name="clientAccountId" value={clientId} />
+      <input type="hidden" name="agency" value={agency} />
+      <input type="hidden" name="client" value={client} />
+      <input type="hidden" name="businessUnitId" value={businessUnitId} />
+      <input type="hidden" name="salespersonId" value={salespersonId} />
+      <input type="hidden" name="industryId" value={industryId} />
 
       {/* Shared dropdown suggestion lists */}
       <datalist id="uom-list">{uoms.map((u) => <option key={u} value={u} />)}</datalist>
-      <datalist id="advertiser-list">{advertiserNames.map((n) => <option key={n} value={n} />)}</datalist>
-      <datalist id="client-list">{clientNames.map((n) => <option key={n} value={n} />)}</datalist>
 
       {state.message && (
         <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">{state.message}</div>
@@ -180,41 +210,20 @@ export function BookingOrderForm({
 
       {/* Header */}
       <div className="grid grid-cols-1 gap-4 rounded-xl border border-line bg-surface p-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="lg:col-span-2">
-          <label className="mb-1.5 block text-sm font-medium">To — Publisher</label>
-          <div className="flex gap-2">
-            <select value={pubVendorId} onChange={(e) => onPickVendor(e.target.value)} className="field h-10 w-40 rounded-lg border border-line-2 bg-surface px-2 text-sm">
-              <option value="">Free text…</option>
-              {vendors.map((v) => <option key={v.id} value={v.id}>{v.code} — {v.name}</option>)}
-            </select>
-            <input name="toName" value={toName} onChange={(e) => setToName(e.target.value)} placeholder="Publisher name" className="field h-10 flex-1 rounded-lg border border-line-2 bg-surface px-3 text-sm" />
-          </div>
-        </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium">Account (CRM)</label>
-          <select value={accountId} onChange={(e) => onPickAccount(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
-            <option value="">— None —</option>
-            {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+          <label className="mb-1.5 block text-sm font-medium">Business Unit *</label>
+          <select value={businessUnitId} onChange={(e) => setBusinessUnitId(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
+            {businessUnits.length === 0 && <option value="">— None —</option>}
+            {businessUnits.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium">Issue date *</label>
           <input type="date" name="issueDate" defaultValue={defaults?.issueDate ?? today()} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" />
         </div>
-
-        <div><label className="mb-1.5 block text-sm font-medium">Advertiser</label><input name="advertiser" list="advertiser-list" defaultValue={defaults?.advertiser ?? ""} placeholder="Select or type…" className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
-        <div><label className="mb-1.5 block text-sm font-medium">Agency</label><input name="agency" value={agency} onChange={(e) => setAgency(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
-        <div><label className="mb-1.5 block text-sm font-medium">Client</label><input name="client" list="client-list" value={client} onChange={(e) => setClient(e.target.value)} placeholder="Select or type…" className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
-        <div><label className="mb-1.5 block text-sm font-medium">Brand</label><input name="brand" defaultValue={defaults?.brand ?? ""} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
-
-        <div><label className="mb-1.5 block text-sm font-medium">Campaign</label><input name="campaign" defaultValue={defaults?.campaign ?? ""} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium">Medium</label>
-          <select name="medium" value={medium} onChange={(e) => setMedium(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
-            <option value="">— Select —</option>
-            {MEDIUM_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-            {medium && !MEDIUM_OPTIONS.includes(medium) && <option value={medium}>{medium}</option>}
-          </select>
+          <label className="mb-1.5 block text-sm font-medium">Receipt date</label>
+          <input type="date" name="receiptDate" defaultValue={defaults?.receiptDate ?? ""} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" />
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium">Currency</label>
@@ -222,7 +231,58 @@ export function BookingOrderForm({
             {currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
           </select>
         </div>
-        <div><label className="mb-1.5 block text-sm font-medium">Payment Terms</label><input name="paymentTerms" defaultValue={defaults?.paymentTerms ?? "100% Advance"} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
+
+        <div className="lg:col-span-2">
+          <label className="mb-1.5 block text-sm font-medium">Medium</label>
+          <div className="flex gap-2">
+            <select value={pubVendorId} onChange={(e) => onPickVendor(e.target.value)} className="field h-10 w-40 rounded-lg border border-line-2 bg-surface px-2 text-sm">
+              <option value="">Free text…</option>
+              {vendors.map((v) => <option key={v.id} value={v.id}>{v.code} — {v.name}</option>)}
+            </select>
+            <input name="toName" value={toName} onChange={(e) => setToName(e.target.value)} placeholder="Medium / publisher name" className="field h-10 flex-1 rounded-lg border border-line-2 bg-surface px-3 text-sm" />
+          </div>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Agency</label>
+          <select value={agencyId} onChange={(e) => onPickAgency(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
+            <option value="">— None —</option>
+            {agencyAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Client</label>
+          <select value={clientId} onChange={(e) => onPickClient(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
+            <option value="">— None —</option>
+            {clientAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Salesperson</label>
+          <select value={salespersonId} onChange={(e) => setSalespersonId(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
+            <option value="">— None —</option>
+            {salespeople
+              .filter((s) => !businessUnitId || s.businessUnitId == null || String(s.businessUnitId) === businessUnitId)
+              .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Industry</label>
+          <select value={industryId} onChange={(e) => setIndustryId(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
+            <option value="">— None —</option>
+            {industries.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+          </select>
+        </div>
+        <div><label className="mb-1.5 block text-sm font-medium">Campaign</label><input name="campaign" defaultValue={defaults?.campaign ?? ""} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Media</label>
+          <select name="medium" value={medium} onChange={(e) => setMedium(e.target.value)} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-2 text-sm">
+            <option value="">— Select —</option>
+            {MEDIA_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            {medium && !MEDIA_OPTIONS.includes(medium) && <option value={medium}>{medium}</option>}
+          </select>
+        </div>
+        <div className="lg:col-span-2"><label className="mb-1.5 block text-sm font-medium">Payment Terms</label><input name="paymentTerms" defaultValue={defaults?.paymentTerms ?? "100% Advance"} className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm" /></div>
       </div>
 
       {/* Lines */}

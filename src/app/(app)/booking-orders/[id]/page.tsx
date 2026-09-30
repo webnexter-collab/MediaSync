@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { bookingOrders, bookingOrderLines } from "@/db/schema";
+import { bookingOrders, bookingOrderLines, businessUnits, salespeople, industries } from "@/db/schema";
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import { setBookingOrderStatus, convertBookingOrderToInvoice } from "@/actions/booking-orders";
@@ -10,7 +10,7 @@ import { setBookingOrderStatus, convertBookingOrderToInvoice } from "@/actions/b
 export const dynamic = "force-dynamic";
 
 const COMPANY_ID = 1;
-const MEDIA_LABEL: Record<string, string> = { print: "Print", digital: "Digital", radio: "Radio", tv: "TV", website: "Website" };
+const MEDIA_LABEL: Record<string, string> = { print: "Print", digital: "Digital", radio: "Radio", tv: "TV", website: "Website", outdoor: "Outdoor" };
 
 function parseDays(json: string | null): number[] {
   try {
@@ -30,10 +30,20 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
   if (!bo) notFound();
   const lines = await db.select().from(bookingOrderLines).where(eq(bookingOrderLines.bookingOrderId, boId)).orderBy(asc(bookingOrderLines.lineNo));
 
+  const [buRow, spRow, indRow] = await Promise.all([
+    bo.businessUnitId ? db.select({ name: businessUnits.name }).from(businessUnits).where(eq(businessUnits.id, bo.businessUnitId)).limit(1) : Promise.resolve([]),
+    bo.salespersonId ? db.select({ name: salespeople.name }).from(salespeople).where(eq(salespeople.id, bo.salespersonId)).limit(1) : Promise.resolve([]),
+    bo.industryId ? db.select({ name: industries.name }).from(industries).where(eq(industries.id, bo.industryId)).limit(1) : Promise.resolve([]),
+  ]);
+  const buName = buRow[0]?.name ?? null;
+  const spName = spRow[0]?.name ?? null;
+  const indName = indRow[0]?.name ?? null;
+
   const cur = (f: number) => `${bo.currency} ${formatFils(f, { withSymbol: false })}`;
   const parties: [string, string | null][] = [
-    ["To — Publisher", bo.toName], ["Advertiser", bo.advertiser], ["Agency", bo.agency],
-    ["Client", bo.client], ["Brand", bo.brand], ["Campaign", bo.campaign],
+    ["Business Unit", buName], ["Medium", bo.toName], ["Agency", bo.agency],
+    ["Client", bo.client], ["Salesperson", spName], ["Industry", indName],
+    ["Campaign", bo.campaign],
   ];
 
   return (
@@ -75,7 +85,8 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
           ))}
           <div><div className="text-[10px] uppercase tracking-wide text-muted">Currency</div><div className="mt-0.5 text-sm text-ink">{bo.currency}</div></div>
           <div><div className="text-[10px] uppercase tracking-wide text-muted">Payment Terms</div><div className="mt-0.5 text-sm text-ink">{bo.paymentTerms || "—"}</div></div>
-          <div><div className="text-[10px] uppercase tracking-wide text-muted">Medium</div><div className="mt-0.5 text-sm text-ink">{bo.medium || "—"}</div></div>
+          <div><div className="text-[10px] uppercase tracking-wide text-muted">Media</div><div className="mt-0.5 text-sm text-ink">{bo.medium || "—"}</div></div>
+          <div><div className="text-[10px] uppercase tracking-wide text-muted">Receipt date</div><div className="mt-0.5 text-sm text-ink">{bo.receiptDate || "—"}</div></div>
         </div>
       </Card>
 
