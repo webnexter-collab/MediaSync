@@ -33,6 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const data: InvoicePdfData = {
     docTitle: "PROFORMA INVOICE",
+    docFileTitle: `Proforma ${doc.number}`,
     company: {
       name: company?.name ?? "Your Company",
       trn: company?.trn,

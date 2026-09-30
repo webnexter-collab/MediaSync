@@ -15,6 +15,7 @@ const COMPANY_ID = 1;
 function parseCard(formData: FormData) {
   return rateCardSchema.safeParse({
     name: formData.get("name"),
+    businessUnitId: formData.get("businessUnitId"),
     currency: formData.get("currency") || "AED",
     validFrom: formData.get("validFrom") || undefined,
     validTo: formData.get("validTo") || undefined,
@@ -35,6 +36,7 @@ export async function createRateCard(_prev: FormState, formData: FormData): Prom
       .values({
         companyId: COMPANY_ID,
         name: d.name,
+        businessUnitId: d.businessUnitId,
         currency: d.currency,
         validFrom: d.validFrom ?? null,
         validTo: d.validTo ?? null,
@@ -64,6 +66,7 @@ export async function updateRateCard(
       .update(rateCards)
       .set({
         name: d.name,
+        businessUnitId: d.businessUnitId,
         currency: d.currency,
         validFrom: d.validFrom ?? null,
         validTo: d.validTo ?? null,

@@ -20,7 +20,7 @@ export default async function EditRateCard({ params }: { params: Promise<{ id: s
   const [row] = await db.select().from(rateCards).where(and(eq(rateCards.id, cardId), eq(rateCards.companyId, COMPANY_ID))).limit(1);
   if (!row) notFound();
 
-  const { currencies } = await getAccountFormOptions();
+  const { currencies, businessUnits } = await getAccountFormOptions();
   const action = updateRateCard.bind(null, cardId);
 
   return (
@@ -28,7 +28,7 @@ export default async function EditRateCard({ params }: { params: Promise<{ id: s
       <PageHeader title={`Edit ${row.name}`} subtitle="Rate card details" />
       <Card>
         <div className="px-6 py-6">
-          <MasterForm action={action} fields={rateCardFields(row, currencies)} submitLabel="Update rate card" cancelHref={`/rate-cards/${row.id}`} />
+          <MasterForm action={action} fields={rateCardFields(row, currencies, businessUnits)} submitLabel="Update rate card" cancelHref={`/rate-cards/${row.id}`} />
         </div>
       </Card>
     </div>

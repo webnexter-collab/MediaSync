@@ -7,7 +7,7 @@ import { createRateCard } from "@/actions/rate-cards";
 export const dynamic = "force-dynamic";
 
 export default async function NewRateCard() {
-  const { currencies } = await getAccountFormOptions();
+  const { currencies, businessUnits } = await getAccountFormOptions();
   return (
     <div>
       <PageHeader title="New rate card" subtitle="Create a rate card, then add priced items to it." />
@@ -15,7 +15,7 @@ export default async function NewRateCard() {
         <div className="px-6 py-6">
           <MasterForm
             action={createRateCard}
-            fields={rateCardFields(undefined, currencies)}
+            fields={rateCardFields(undefined, currencies, businessUnits)}
             submitLabel="Create rate card"
             cancelHref="/rate-cards"
           />

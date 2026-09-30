@@ -15,6 +15,7 @@ const LINE = "#d7dbe0";
 
 export type InvoicePdfData = {
   docTitle?: string;
+  docFileTitle?: string;
   dueLabel?: string;
   partyHeading?: string;
   company: { name: string; trn?: string | null; address?: string | null; email?: string | null };
@@ -89,7 +90,7 @@ const s = StyleSheet.create({
 function InvoiceDocument({ data }: { data: InvoicePdfData }) {
   const { company, customer, invoice, lines } = data;
   return (
-    <Document title={`Invoice ${invoice.number}`}>
+    <Document title={data.docFileTitle ?? `Invoice ${invoice.number}`}>
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.between}>

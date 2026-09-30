@@ -2,7 +2,7 @@ import Link from "next/link";
 import { desc, eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { documents, customers } from "@/db/schema";
-import { PageHeader, Card, Badge, EmptyState } from "@/components/ui";
+import { PageHeader, Card, Badge, EmptyState, LinkButton } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,11 @@ export default async function ProformaInvoicesPage() {
 
   return (
     <div>
-      <PageHeader title="Proforma Invoices" subtitle="Pre-invoice payment requests raised from booking orders. VAT shown; not a tax document." />
+      <PageHeader
+        title="Proforma Invoices"
+        subtitle="Pre-invoice payment requests, from a booking order or standalone. VAT shown; not a tax document."
+        action={<LinkButton href="/proforma-invoices/new">New proforma</LinkButton>}
+      />
       <Card>
         {dbError ? (
           <EmptyState title="Database not connected yet" hint="Set DATABASE_URL and run the migrations, then refresh." />

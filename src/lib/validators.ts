@@ -346,6 +346,7 @@ const optDate = z
 
 export const rateCardSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(160),
+  businessUnitId: nullableId,
   currency: z.string().trim().min(3).max(3).default("AED"),
   validFrom: optDate,
   validTo: optDate,

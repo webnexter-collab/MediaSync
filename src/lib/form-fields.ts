@@ -147,9 +147,12 @@ export function currencyFields(
 export function rateCardFields(
   row?: typeof import("@/db/schema").rateCards.$inferSelect,
   currencies: { value: string; label: string }[] = [{ value: "AED", label: "AED" }],
+  businessUnits: { value: string; label: string }[] = [],
 ): FieldDef[] {
+  const businessUnitOptions = [{ value: "", label: "— All units —" }, ...businessUnits];
   return [
     { name: "name", label: "Rate card name", required: true, half: true, placeholder: "The National — 2026 Rates", defaultValue: row?.name },
+    { name: "businessUnitId", label: "Business Unit", type: "select", half: true, options: businessUnitOptions, defaultValue: row?.businessUnitId != null ? String(row.businessUnitId) : "" },
     { name: "currency", label: "Currency", type: "select", half: true, options: currencies, defaultValue: row?.currency ?? "AED" },
     { name: "validFrom", label: "Valid from", type: "date", half: true, defaultValue: row?.validFrom ?? undefined },
     { name: "validTo", label: "Valid to", type: "date", half: true, defaultValue: row?.validTo ?? undefined },
