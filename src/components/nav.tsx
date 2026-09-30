@@ -7,7 +7,7 @@ import {
   Banknote, Users, Building2, Package, Landmark, TrendingUp, TrendingDown,
   FileUser, FileBox, ShieldCheck, LogOut, Settings, X, Megaphone, Coins,
   Percent, ClipboardList, Tags, Contact, UserRound, Ruler,
-  Globe, Factory, Network, Target, Table2, type LucideIcon,
+  Globe, Factory, Network, Target, Table2, BarChart3, SlidersHorizontal, type LucideIcon,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import type { Role } from "@/lib/session";
@@ -47,6 +47,9 @@ const groups: Group[] = [
     { href: "/bank-accounts", label: "Bank & Cash", icon: Landmark },
   ]},
   { title: "Reports", items: [
+    { href: "/reports/revenue-monthly", label: "Revenue Reports", icon: BarChart3 },
+    { href: "/reports/revenue-sales", label: "Sales vs Target", icon: Target },
+    { href: "/reports/custom", label: "Custom Report", icon: SlidersHorizontal },
     { href: "/reports/aged-receivables", label: "Aged Receivables", icon: TrendingUp },
     { href: "/reports/aged-payables", label: "Aged Payables", icon: TrendingDown },
     { href: "/reports/customer-statement", label: "Customer Statement", icon: FileUser },
