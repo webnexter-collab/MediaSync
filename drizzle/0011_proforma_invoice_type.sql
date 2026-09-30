@@ -1,0 +1,1 @@
+ALTER TYPE "public"."document_type" ADD VALUE 'proforma_invoice' BEFORE 'delivery_note';

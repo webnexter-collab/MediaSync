@@ -351,6 +351,98 @@ export async function convertBookingOrderToInvoice(boId: number): Promise<void> 
   redirect(`/invoices/${invId}`);
 }
 
+/**
+ * Convert a Booking Order into a Proforma Invoice (documents table, type
+ * proforma_invoice, own PRO- numbering). A proforma is a pre-invoice quote for
+ * payment — it shows VAT but does NOT consume the BO (no status change) and is
+ * not a tax document. The client later gets a Tax Invoice.
+ */
+export async function convertBookingOrderToProforma(boId: number): Promise<void> {
+  await assertCanWrite();
+
+  const [bo] = await db
+    .select()
+    .from(bookingOrders)
+    .where(and(eq(bookingOrders.id, boId), eq(bookingOrders.companyId, COMPANY_ID)))
+    .limit(1);
+  if (!bo) throw new Error("Booking order not found.");
+  if (bo.status === "cancelled") throw new Error("Cannot raise a proforma for a cancelled booking order.");
+
+  const lines = await db
+    .select()
+    .from(bookingOrderLines)
+    .where(eq(bookingOrderLines.bookingOrderId, boId))
+    .orderBy(asc(bookingOrderLines.lineNo));
+  if (lines.length === 0) throw new Error("Booking order has no lines.");
+
+  const agencyPct = Number(bo.agencyDiscountPct) || 0;
+  const vatRate = Number(bo.vatRatePct) || 0;
+
+  const mapped = lines.map((l) => {
+    const lineDisc = Number(l.discountPct) || 0;
+    const combinedPct = Math.round((1 - (1 - lineDisc / 100) * (1 - agencyPct / 100)) * 10000) / 100;
+    const description = [l.platform, l.particulars, l.brandingDetails, l.period].filter(Boolean).join(" · ") || "Media placement";
+    return { description, quantity: Number(l.quantity), unitPriceFils: l.unitGrossFils, discountPercent: combinedPct, taxCategory: "standard" as const, vatRate };
+  });
+
+  const inputs: LineInput[] = mapped.map((m) => ({ quantity: m.quantity, unitPriceFils: m.unitPriceFils, discountPercent: m.discountPercent, taxCategory: m.taxCategory, vatRate: m.vatRate }));
+  const { totals } = computeTotals(inputs);
+
+  const notes = [
+    `Proforma for Booking Order ${bo.number}.`,
+    bo.toName ? `Medium: ${bo.toName}.` : null,
+    bo.agency || bo.client ? `Agency/Client: ${[bo.agency, bo.client].filter(Boolean).join(" / ")}.` : null,
+    bo.campaign ? `Campaign: ${bo.campaign}.` : null,
+  ].filter(Boolean).join(" ");
+
+  let proId: number;
+  try {
+    proId = await db.transaction(async (tx) => {
+      const number = await nextNumber(tx, { companyId: COMPANY_ID, kind: "proforma", prefix: "PRO" });
+      const [doc] = await tx
+        .insert(documents)
+        .values({
+          companyId: COMPANY_ID,
+          type: "proforma_invoice",
+          number,
+          partyType: "customer",
+          customerId: bo.clientAccountId ?? bo.accountId,
+          status: "draft",
+          issueDate: new Date().toISOString().slice(0, 10),
+          reference: bo.number,
+          currency: bo.currency,
+          exchangeRate: bo.exchangeRate,
+          subtotalFils: totals.subtotalFils,
+          discountTotalFils: totals.discountTotalFils,
+          vatTotalFils: totals.vatTotalFils,
+          grandTotalFils: totals.grandTotalFils,
+          paymentTerms: bo.paymentTerms,
+          notes,
+        })
+        .returning({ id: documents.id });
+
+      await tx.insert(documentLines).values(
+        mapped.map((m, i) => {
+          const r = computeLine({ quantity: m.quantity, unitPriceFils: m.unitPriceFils, discountPercent: m.discountPercent, taxCategory: m.taxCategory, vatRate: m.vatRate });
+          return {
+            documentId: doc.id, lineNo: i + 1, description: m.description,
+            quantity: String(m.quantity), unitPriceFils: m.unitPriceFils,
+            discountPercent: String(m.discountPercent), taxCategory: m.taxCategory, vatRate: String(m.vatRate),
+            lineSubtotalFils: r.lineSubtotalFils, vatAmountFils: r.vatAmountFils, lineTotalFils: r.lineTotalFils,
+          };
+        }),
+      );
+      return doc.id;
+    });
+  } catch (e) {
+    throw new Error(`Could not create proforma: ${e instanceof Error ? e.message : "error"}`);
+  }
+
+  revalidatePath("/proforma-invoices");
+  revalidatePath(`/booking-orders/${boId}`);
+  redirect(`/proforma-invoices/${proId}`);
+}
+
 export async function setBookingOrderStatus(
   id: number,
   status: "draft" | "sent" | "confirmed" | "cancelled",

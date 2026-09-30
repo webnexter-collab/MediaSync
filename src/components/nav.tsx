@@ -26,6 +26,7 @@ const groups: Group[] = [
   ]},
   { title: "Sales", items: [
     { href: "/quotations", label: "Quotations", icon: FileText },
+    { href: "/proforma-invoices", label: "Proforma Invoices", icon: FileText },
     { href: "/invoices", label: "Invoices", icon: ReceiptText },
     { href: "/delivery-notes", label: "Delivery Notes", icon: Truck },
     { href: "/receipts", label: "Receipts", icon: HandCoins },

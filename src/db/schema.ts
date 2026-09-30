@@ -40,6 +40,7 @@ import {
 export const documentTypeEnum = pgEnum("document_type", [
   "quotation",
   "invoice",
+  "proforma_invoice",
   "delivery_note",
   "purchase_order",
 ]);

@@ -6,7 +6,7 @@ import { bookingOrders, bookingOrderLines, businessUnits, salespeople, industrie
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import {
-  setBookingOrderStatus, convertBookingOrderToInvoice,
+  setBookingOrderStatus, convertBookingOrderToInvoice, convertBookingOrderToProforma,
   submitBookingOrderForApproval, approveBookingOrder, rejectBookingOrder,
 } from "@/actions/booking-orders";
 import { getSession } from "@/lib/auth";
@@ -92,6 +92,9 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
         )}
         {(bo.status === "approved" || bo.status === "sent") && (
           <form action={setBookingOrderStatus.bind(null, bo.id, "confirmed")}><button className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-white hover:bg-ink-2">Confirm</button></form>
+        )}
+        {(bo.status === "approved" || bo.status === "sent" || bo.status === "confirmed") && (
+          <form action={convertBookingOrderToProforma.bind(null, bo.id)}><button className="rounded-lg border border-teal/40 bg-surface px-3 py-1.5 text-xs font-medium text-teal-ink hover:bg-teal/5">Create Proforma</button></form>
         )}
         {(bo.status === "approved" || bo.status === "sent" || bo.status === "confirmed") && (
           <form action={convertBookingOrderToInvoice.bind(null, bo.id)}><button className="rounded-lg bg-teal px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">Create Invoice</button></form>
