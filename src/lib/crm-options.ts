@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, currencies, suppliers, mediaChannels, rateCards, rateCardItems, uoms, businessUnits, salespeople, industries } from "@/db/schema";
+import { customers, currencies, suppliers, mediaChannels, rateCards, rateCardItems, uoms, businessUnits, salespeople, industries, agencyGroups } from "@/db/schema";
 import type { AccountFormOptions } from "@/lib/form-fields";
 
 const COMPANY_ID = 1;
@@ -125,6 +125,17 @@ export async function getAccountFormOptions(
       .where(and(eq(currencies.companyId, COMPANY_ID), eq(currencies.isActive, true)))
       .orderBy(asc(currencies.code));
 
+    const [buRows, groupRows] = await Promise.all([
+      db.select({ id: businessUnits.id, name: businessUnits.name })
+        .from(businessUnits)
+        .where(and(eq(businessUnits.companyId, COMPANY_ID), eq(businessUnits.isActive, true)))
+        .orderBy(asc(businessUnits.sortOrder), asc(businessUnits.name)),
+      db.select({ id: agencyGroups.id, name: agencyGroups.name })
+        .from(agencyGroups)
+        .where(and(eq(agencyGroups.companyId, COMPANY_ID), eq(agencyGroups.isActive, true)))
+        .orderBy(asc(agencyGroups.name)),
+    ]);
+
     return {
       agencies: agencyRows
         .filter((a) => a.id !== excludeId)
@@ -133,8 +144,10 @@ export async function getAccountFormOptions(
         ? currencyRows
         : [{ code: "AED", name: "UAE Dirham" }]
       ).map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` })),
+      businessUnits: buRows.map((b) => ({ value: String(b.id), label: b.name })),
+      agencyGroups: groupRows.map((g) => ({ value: String(g.id), label: g.name })),
     };
   } catch {
-    return { agencies: [], currencies: [{ value: "AED", label: "AED" }] };
+    return { agencies: [], currencies: [{ value: "AED", label: "AED" }], businessUnits: [], agencyGroups: [] };
   }
 }

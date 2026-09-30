@@ -27,6 +27,14 @@ export const customerSchema = z.object({
     z.number().int().positive().nullable(),
   ),
   agencyCommissionPct: z.coerce.number().min(0).max(100).default(0),
+  businessUnitId: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().int().positive().nullable(),
+  ),
+  agencyGroupId: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().int().positive().nullable(),
+  ),
   trn,
   contactPerson: optionalStr,
   email: z

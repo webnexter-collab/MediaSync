@@ -14,6 +14,8 @@ const ACCOUNT_TYPE_OPTIONS = [
 export type AccountFormOptions = {
   agencies?: { value: string; label: string }[];
   currencies?: { value: string; label: string }[];
+  businessUnits?: { value: string; label: string }[];
+  agencyGroups?: { value: string; label: string }[];
 };
 
 export function customerFields(
@@ -26,10 +28,14 @@ export function customerFields(
     ...(opts.agencies ?? []),
   ];
   const currencyOptions = opts.currencies ?? [{ value: "AED", label: "AED" }];
+  const businessUnitOptions = [{ value: "", label: "— None —" }, ...(opts.businessUnits ?? [])];
+  const agencyGroupOptions = [{ value: "", label: "— None —" }, ...(opts.agencyGroups ?? [])];
   return [
     { name: "code", label: "Account code", required: true, half: true, placeholder: "ACC-0001", defaultValue: row?.code ?? suggestedCode },
     { name: "name", label: "Account name", required: true, half: true, defaultValue: row?.name },
     { name: "accountType", label: "Account type", type: "select", half: true, options: ACCOUNT_TYPE_OPTIONS, defaultValue: row?.accountType ?? "direct_client" },
+    { name: "businessUnitId", label: "Home business unit", type: "select", half: true, options: businessUnitOptions, defaultValue: row?.businessUnitId != null ? String(row.businessUnitId) : "", hint: "Home market; bookings can still use any unit" },
+    { name: "agencyGroupId", label: "Agency group", type: "select", half: true, options: agencyGroupOptions, defaultValue: row?.agencyGroupId != null ? String(row.agencyGroupId) : "", hint: "For agencies / buying houses" },
     { name: "parentAgencyId", label: "Parent agency", type: "select", half: true, options: agencyOptions, defaultValue: row?.parentAgencyId != null ? String(row.parentAgencyId) : "", hint: "For clients booked through an agency" },
     { name: "agencyCommissionPct", label: "Agency commission (%)", type: "number", half: true, defaultValue: row?.agencyCommissionPct ?? 0, hint: "Applied on agency/buying-house proposals" },
     { name: "currency", label: "Default currency", type: "select", half: true, options: currencyOptions, defaultValue: row?.currency ?? "AED" },
@@ -92,6 +98,9 @@ const MEDIA_TYPE_OPTIONS = [
   { value: "print", label: "Print" },
   { value: "digital", label: "Digital" },
   { value: "radio", label: "Radio" },
+  { value: "tv", label: "TV" },
+  { value: "website", label: "Website" },
+  { value: "outdoor", label: "Outdoor" },
 ];
 
 type MediaChannelRow = typeof import("@/db/schema").mediaChannels.$inferSelect;

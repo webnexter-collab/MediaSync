@@ -6,7 +6,8 @@ import {
   LayoutDashboard, FileText, ReceiptText, Truck, HandCoins, ShoppingCart,
   Banknote, Users, Building2, Package, Landmark, TrendingUp, TrendingDown,
   FileUser, FileBox, ShieldCheck, LogOut, Settings, X, Megaphone, Coins,
-  Percent, ClipboardList, Tags, Contact, UserRound, Ruler, type LucideIcon,
+  Percent, ClipboardList, Tags, Contact, UserRound, Ruler,
+  Globe, Factory, Network, Target, type LucideIcon,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import type { Role } from "@/lib/session";
@@ -25,6 +26,8 @@ const groups: Group[] = [
     { href: "/invoices", label: "Invoices", icon: ReceiptText },
     { href: "/delivery-notes", label: "Delivery Notes", icon: Truck },
     { href: "/receipts", label: "Receipts", icon: HandCoins },
+    { href: "/salespeople", label: "Salespeople", icon: UserRound },
+    { href: "/sales-targets", label: "Sales Targets", icon: Target },
   ]},
   { title: "Purchasing", items: [
     { href: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
@@ -35,6 +38,7 @@ const groups: Group[] = [
     { href: "/customers?type=advertiser", label: "Advertisers", icon: Contact },
     { href: "/customers?type=direct_client", label: "Clients", icon: UserRound },
     { href: "/suppliers", label: "Publishers", icon: Building2 },
+    { href: "/agency-groups", label: "Agency Groups", icon: Network },
     { href: "/media-channels", label: "Media Channels", icon: Megaphone },
     { href: "/items", label: "Items", icon: Package },
     { href: "/bank-accounts", label: "Bank & Cash", icon: Landmark },
@@ -46,6 +50,8 @@ const groups: Group[] = [
     { href: "/reports/supplier-statement", label: "Supplier Statement", icon: FileBox },
   ]},
   { title: "Administration", adminOnly: true, items: [
+    { href: "/business-units", label: "Business Units", icon: Globe },
+    { href: "/industries", label: "Industries", icon: Factory },
     { href: "/currencies", label: "Currencies & FX", icon: Coins },
     { href: "/tax-rules", label: "Tax Rules", icon: Percent },
     { href: "/uoms", label: "Units (UOM)", icon: Ruler },
