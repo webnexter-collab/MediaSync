@@ -11,6 +11,7 @@ import { toFils } from "@/lib/money";
 import { computeBoLine, computeBoTotals } from "@/lib/booking-order";
 import { computeLine, computeTotals, type LineInput } from "@/lib/vat";
 import { nextNumber, nextBookingOrderNumber } from "@/lib/numbering";
+import { getRateToBase } from "@/lib/fx";
 
 const COMPANY_ID = 1;
 
@@ -105,6 +106,7 @@ export async function createBookingOrder(_prev: FormState, formData: FormData): 
   const data = res.data;
   const session = await getSession();
   const t = headerTotals(data);
+  const exchangeRate = await getRateToBase(data.currency, COMPANY_ID);
 
   let newId: number;
   try {
@@ -116,6 +118,7 @@ export async function createBookingOrder(_prev: FormState, formData: FormData): 
           companyId: COMPANY_ID,
           number,
           status: "draft",
+          exchangeRate,
           publisherVendorId: data.publisherVendorId,
           toName: data.toName,
           accountId: data.accountId,
@@ -169,12 +172,14 @@ export async function updateBookingOrder(
   if (!res.ok) return res.state;
   const data = res.data;
   const t = headerTotals(data);
+  const exchangeRate = await getRateToBase(data.currency, COMPANY_ID);
 
   try {
     await db.transaction(async (tx) => {
       await tx
         .update(bookingOrders)
         .set({
+          exchangeRate,
           publisherVendorId: data.publisherVendorId,
           toName: data.toName,
           accountId: data.accountId,

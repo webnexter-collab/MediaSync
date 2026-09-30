@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { and, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "./index";
 import {
@@ -12,6 +13,10 @@ import {
   fxRates,
   taxRules,
   mediaChannels,
+  businessUnits,
+  agencyGroups,
+  industries,
+  salespeople,
 } from "./schema";
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -99,6 +104,57 @@ async function main() {
       { companyId: 1, mediaType: "digital", name: "Programmatic Display Network", code: "DG-PROG-DISP" },
     ])
     .onConflictDoNothing();
+
+  // Business Units — the markets Mindset Media operates (reporting dimension).
+  await db
+    .insert(businessUnits)
+    .values([
+      { companyId: 1, name: "UAE Media", code: "UAE", country: "United Arab Emirates", defaultCurrency: "USD", sortOrder: 1 },
+      { companyId: 1, name: "Beirut Outdoor", code: "BEI", country: "Lebanon", defaultCurrency: "USD", sortOrder: 2 },
+      { companyId: 1, name: "Iraq TV", code: "IRQ", country: "Iraq", defaultCurrency: "USD", sortOrder: 3 },
+    ])
+    .onConflictDoNothing();
+
+  // Agency groups (agencies are mapped to these for consolidated reporting).
+  await db
+    .insert(agencyGroups)
+    .values(
+      ["BPG", "BPN", "Dentsu", "Direct", "Fusion", "GROUPM", "Havas", "MCN", "Memac", "Omnicom", "Publicis", "Radix", "SMB", "Times"]
+        .map((name) => ({ companyId: 1, name })),
+    )
+    .onConflictDoNothing();
+
+  // Advertiser industry categories.
+  await db
+    .insert(industries)
+    .values(
+      [
+        "AIRLINES", "AUTOMOTIVE", "BANKING & FINANCE", "EDUCATION", "GOVERNMENT & PUBLIC SERVICES",
+        "HEALTHCARE", "MISCELLANEOUS", "REAL ESTATE & CONSTRUCTION", "RETAIL", "SKIN CARE",
+        "TECHNOLOGY", "TRAVEL, TOURISM, HOSPITALITY & ENTERTAINMENT",
+      ].map((name) => ({ companyId: 1, name })),
+    )
+    .onConflictDoNothing();
+
+  // Salespeople (UAE team). Resolve the UAE business unit id first.
+  const [uaeUnit] = await db
+    .select({ id: businessUnits.id })
+    .from(businessUnits)
+    .where(and(eq(businessUnits.companyId, 1), eq(businessUnits.code, "UAE")))
+    .limit(1);
+  if (uaeUnit) {
+    const existing = await db
+      .select({ id: salespeople.id })
+      .from(salespeople)
+      .where(eq(salespeople.companyId, 1))
+      .limit(1);
+    if (existing.length === 0) {
+      await db.insert(salespeople).values(
+        ["Carla Bou Nader", "Management", "Nicolas Antoine Berbari", "Priyanka Raman", "Shakeel Shaikh"]
+          .map((name) => ({ companyId: 1, name, businessUnitId: uaeUnit.id })),
+      );
+    }
+  }
 
   await db
     .insert(items)

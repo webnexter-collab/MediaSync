@@ -106,6 +106,7 @@ export async function fetchApprovedBookings(filters: ReportFilters): Promise<{
       netFils: bookingOrders.totalNetFils,
       grandFils: bookingOrders.grandTotalFils,
       currency: bookingOrders.currency,
+      exchangeRate: bookingOrders.exchangeRate,
     })
     .from(bookingOrders)
     .leftJoin(businessUnits, eq(businessUnits.id, bookingOrders.businessUnitId))
@@ -116,8 +117,14 @@ export async function fetchApprovedBookings(filters: ReportFilters): Promise<{
     .where(and(...conds))
     .limit(5000);
 
+  const rTarget = fx.get(currency) ?? 1; // reporting currency → AED
+  // Value in reporting currency using the booking's FROZEN rate to AED, then
+  // AED → reporting currency at the current rate for that currency.
+  const toReporting = (fils: number, boRate: number) => Math.round((fils * boRate) / rTarget);
+
   const rows: BookingRow[] = raw.map((r) => {
     const [y, m] = (r.period ?? "0000-00").split("-");
+    const boRate = Number(r.exchangeRate) || 1;
     return {
       id: r.id,
       number: r.number,
@@ -135,8 +142,8 @@ export async function fetchApprovedBookings(filters: ReportFilters): Promise<{
       salesId: r.salesId,
       salesName: r.salesName,
       industry: r.industry,
-      revenueFils: convert(r.netFils, r.currency, currency, fx),
-      grandFils: convert(r.grandFils, r.currency, currency, fx),
+      revenueFils: toReporting(r.netFils, boRate),
+      grandFils: toReporting(r.grandFils, boRate),
     };
   });
 
