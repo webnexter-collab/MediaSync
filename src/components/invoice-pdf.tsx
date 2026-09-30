@@ -3,10 +3,12 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import { formatFils } from "@/lib/money";
+import { MINDSET_LOGO_DATA_URI } from "@/assets/mindset-logo";
 
 const NAVY = "#10233f";
 const TEAL = "#0e7c86";
@@ -49,6 +51,7 @@ const s = StyleSheet.create({
   page: { padding: 40, fontSize: 9.5, color: "#1f2733", fontFamily: "Helvetica" },
   row: { flexDirection: "row" },
   between: { flexDirection: "row", justifyContent: "space-between" },
+  logo: { width: 42, height: 42 },
   brand: { fontSize: 20, color: NAVY, fontFamily: "Helvetica-Bold" },
   title: { fontSize: 16, color: NAVY, fontFamily: "Helvetica-Bold", textAlign: "right" },
   muted: { color: MUTED },
@@ -94,11 +97,14 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.between}>
-          <View>
-            <Text style={s.brand}>{company.name}</Text>
-            {company.trn ? <Text style={s.muted}>TRN: {company.trn}</Text> : null}
-            {company.address ? <Text style={s.muted}>{company.address}</Text> : null}
-            {company.email ? <Text style={s.muted}>{company.email}</Text> : null}
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+            <Image style={s.logo} src={MINDSET_LOGO_DATA_URI} />
+            <View>
+              <Text style={s.brand}>{company.name}</Text>
+              {company.trn ? <Text style={s.muted}>TRN: {company.trn}</Text> : null}
+              {company.address ? <Text style={s.muted}>{company.address}</Text> : null}
+              {company.email ? <Text style={s.muted}>{company.email}</Text> : null}
+            </View>
           </View>
           <View>
             <Text style={s.title}>{data.docTitle ?? "TAX INVOICE"}</Text>

@@ -1,7 +1,7 @@
 import { PageHeader, Card } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import { fetchApprovedBookings, getReportBusinessUnits, MONTHS } from "@/lib/reporting";
-import { ReportFilters, ReportTabs, KpiCard, parseReportParams } from "@/components/reports";
+import { ReportFilters, ReportTabs, KpiCard, ReportExportButtons, parseReportParams } from "@/components/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +28,7 @@ export default async function RevenueMonthlyReport({ searchParams }: { searchPar
       <PageHeader title="Monthly Revenue" subtitle="Net revenue (excl. VAT) by month for approved bookings, with running YTD." />
       <ReportTabs active="/reports/revenue-monthly" query={query} />
       <ReportFilters basePath="/reports/revenue-monthly" units={units} bu={sp.bu} year={String(year)} currency={currency} years={years} />
+      <ReportExportButtons reportKey="monthly" query={query} />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard label={`Annual revenue · ${currency}`} value={formatFils(annual, { currency })} sub={`${rows.length} approved bookings`} />

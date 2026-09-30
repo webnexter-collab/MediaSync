@@ -1,7 +1,7 @@
 import { PageHeader, Card } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import { fetchApprovedBookings, getReportBusinessUnits, type BookingRow } from "@/lib/reporting";
-import { ReportFilters, ReportTabs, RankTable, parseReportParams } from "@/components/reports";
+import { ReportFilters, ReportTabs, RankTable, ReportExportButtons, parseReportParams } from "@/components/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +37,7 @@ export default async function RevenueMediumSplitReport({ searchParams }: { searc
       <PageHeader title="Revenue by Client / Agency × Medium" subtitle="How each client and agency splits across media platforms." />
       <ReportTabs active="/reports/revenue-medium-split" query={query} />
       <ReportFilters basePath="/reports/revenue-medium-split" units={units} bu={sp.bu} year={String(year)} month={sp.month} currency={currency} years={years} showMonth />
+      <ReportExportButtons reportKey="medium-split" query={query} />
 
       <h2 className="mb-2 mt-2 font-display text-base font-semibold text-ink">Client × Medium</h2>
       <Card><div className="overflow-x-auto"><RankTable columns={["Client", "Media"]} rows={clientMedium} currency={currency} /></div></Card>

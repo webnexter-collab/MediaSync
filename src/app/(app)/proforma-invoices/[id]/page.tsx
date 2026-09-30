@@ -46,6 +46,7 @@ export default async function ProformaDetail({ params }: { params: Promise<{ id:
         action={
           <div className="flex flex-wrap gap-2">
             <a href={`/proforma-invoices/${proId}/pdf`} target="_blank" className="inline-flex h-10 items-center rounded-lg border border-line-2 bg-surface px-4 text-sm font-medium text-fg hover:bg-bg">Download PDF</a>
+            <a href={`/proforma-invoices/${proId}/export`} className="inline-flex h-10 items-center rounded-lg border border-line-2 bg-surface px-4 text-sm font-medium text-fg hover:bg-bg">Excel</a>
             {isDraft && (
               <form action={markSent}><button className="inline-flex h-10 items-center rounded-lg bg-ink px-4 text-sm font-medium text-white hover:bg-ink-2">Mark as sent</button></form>
             )}

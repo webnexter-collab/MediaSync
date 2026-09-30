@@ -1,7 +1,7 @@
 import { PageHeader, Card } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import { fetchApprovedBookings, getReportBusinessUnits, rankBy } from "@/lib/reporting";
-import { ReportFilters, ReportTabs, KpiCard, RankTable, parseReportParams } from "@/components/reports";
+import { ReportFilters, ReportTabs, KpiCard, RankTable, ReportExportButtons, parseReportParams } from "@/components/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,7 @@ export default async function RevenueByClientReport({ searchParams }: { searchPa
       <PageHeader title="Revenue by Client" subtitle="Net revenue by advertiser / client." />
       <ReportTabs active="/reports/revenue-client" query={query} />
       <ReportFilters basePath="/reports/revenue-client" units={units} bu={sp.bu} year={String(year)} month={sp.month} currency={currency} years={years} showMonth />
+      <ReportExportButtons reportKey="client" query={query} />
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard label={`Total revenue · ${currency}`} value={formatFils(total, { currency })} sub={`${rows.length} bookings`} />
         <KpiCard label="Clients" value={String(ranked.length)} />

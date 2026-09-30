@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeader, Card } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import { fetchApprovedBookings, getReportBusinessUnits, rankBy, type BookingRow } from "@/lib/reporting";
-import { ReportFilters, ReportTabs, KpiCard, RankTable, parseReportParams } from "@/components/reports";
+import { ReportFilters, ReportTabs, KpiCard, RankTable, ReportExportButtons, parseReportParams } from "@/components/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +62,7 @@ export default async function CustomReport({ searchParams }: { searchParams: Pro
       <PageHeader title="Custom Report" subtitle="Pick any dimension and measure. Standard filters (unit, year, month, currency) apply." />
       <ReportTabs active="/reports/custom" query={query} />
       <ReportFilters basePath="/reports/custom" units={units} bu={sp.bu} year={String(year)} month={sp.month} currency={currency} years={years} showMonth />
+      <ReportExportButtons reportKey="custom" query={`${query}&dim=${dimKey}&measure=${measureKey}`} />
 
       <form action="/reports/custom" className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-4">
         {hidden}

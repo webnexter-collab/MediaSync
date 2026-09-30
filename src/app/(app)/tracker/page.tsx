@@ -3,6 +3,7 @@ import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { bookingOrders, businessUnits, salespeople, industries } from "@/db/schema";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/ui";
+import { ReportExportButtons } from "@/components/reports";
 import { formatFils } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -130,6 +131,11 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
         <button className="inline-flex h-9 items-center rounded-lg bg-ink px-4 text-sm font-medium text-white hover:bg-ink-2">Apply</button>
         <Link href="/tracker" className="inline-flex h-9 items-center rounded-lg border border-line-2 bg-surface px-3 text-sm font-medium hover:bg-bg">Reset</Link>
       </form>
+
+      <ReportExportButtons
+        reportKey="tracker"
+        query={`?bu=${sp.bu ?? "all"}&status=${statusParam}&year=${sp.year ?? "all"}&month=${sp.month ?? "all"}&q=${encodeURIComponent(q)}`}
+      />
 
       {/* Summary */}
       {!dbError && rows.length > 0 && (

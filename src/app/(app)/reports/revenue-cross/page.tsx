@@ -1,7 +1,7 @@
 import { PageHeader, Card } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import { fetchApprovedBookings, getReportBusinessUnits, type BookingRow } from "@/lib/reporting";
-import { ReportFilters, ReportTabs, KpiCard, RankTable, parseReportParams } from "@/components/reports";
+import { ReportFilters, ReportTabs, KpiCard, RankTable, ReportExportButtons, parseReportParams } from "@/components/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +38,7 @@ export default async function RevenueCrossReport({ searchParams }: { searchParam
       <PageHeader title="Revenue by Agency × Client × Medium" subtitle="Net revenue by every agency / client / platform combination." />
       <ReportTabs active="/reports/revenue-cross" query={query} />
       <ReportFilters basePath="/reports/revenue-cross" units={units} bu={sp.bu} year={String(year)} month={sp.month} currency={currency} years={years} showMonth />
+      <ReportExportButtons reportKey="cross" query={query} />
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard label={`Total revenue · ${currency}`} value={formatFils(total, { currency })} sub={`${rows.length} bookings`} />
         <KpiCard label="Combinations" value={String(ranked.length)} />

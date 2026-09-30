@@ -1,7 +1,7 @@
 import { PageHeader, Card } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import { fetchApprovedBookings, getReportBusinessUnits, getSalesTargetsByPerson, MONTHS } from "@/lib/reporting";
-import { ReportFilters, ReportTabs, KpiCard, parseReportParams } from "@/components/reports";
+import { ReportFilters, ReportTabs, KpiCard, ReportExportButtons, parseReportParams } from "@/components/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +41,7 @@ export default async function RevenueBySalesReport({ searchParams }: { searchPar
       <PageHeader title="Revenue by Sales — Target vs Achievement" subtitle={`Salesperson performance for ${periodLabel}. Achievement = approved booking revenue.`} />
       <ReportTabs active="/reports/revenue-sales" query={query} />
       <ReportFilters basePath="/reports/revenue-sales" units={units} bu={sp.bu} year={String(year)} month={sp.month} currency={currency} years={years} showMonth />
+      <ReportExportButtons reportKey="sales" query={query} />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
         <KpiCard label={`Target · ${currency}`} value={formatFils(totalTarget, { currency })} sub={periodLabel} />

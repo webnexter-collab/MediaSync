@@ -60,6 +60,18 @@ export function ReportFilters({
   );
 }
 
+/** Download PDF / Excel buttons for a report. `query` is the current "?..." filter string. */
+export function ReportExportButtons({ reportKey, query }: { reportKey: string; query: string }) {
+  const base = `/reports/export${query ? query + "&" : "?"}report=${reportKey}`;
+  return (
+    <div className="mb-4 flex items-center gap-2">
+      <span className="text-xs text-muted">Download:</span>
+      <a href={`${base}&format=pdf`} target="_blank" rel="noopener" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line-2 bg-surface px-3 text-xs font-medium text-fg hover:bg-bg">PDF</a>
+      <a href={`${base}&format=xlsx`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line-2 bg-surface px-3 text-xs font-medium text-fg hover:bg-bg">Excel</a>
+    </div>
+  );
+}
+
 export function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-xl border border-line bg-surface p-4">

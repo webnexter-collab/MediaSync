@@ -1,6 +1,6 @@
 import { PageHeader, Card } from "@/components/ui";
 import { fetchApprovedBookings, getReportBusinessUnits, rankBy } from "@/lib/reporting";
-import { ReportFilters, ReportTabs, RankTable, parseReportParams } from "@/components/reports";
+import { ReportFilters, ReportTabs, RankTable, ReportExportButtons, parseReportParams } from "@/components/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,7 @@ export default async function Top10Report({ searchParams }: { searchParams: Prom
       <PageHeader title="Top 10" subtitle="Highest-revenue agencies, clients and campaigns for the selection." />
       <ReportTabs active="/reports/top10" query={query} />
       <ReportFilters basePath="/reports/top10" units={units} bu={sp.bu} year={String(year)} month={sp.month} currency={currency} years={years} showMonth />
+      <ReportExportButtons reportKey="top10" query={query} />
 
       <h2 className="mb-2 font-display text-base font-semibold text-ink">Top 10 Agencies</h2>
       <Card><RankTable columns={["Agency"]} rows={topAgencies} currency={currency} /></Card>

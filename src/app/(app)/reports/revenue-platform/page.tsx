@@ -1,7 +1,7 @@
 import { PageHeader, Card } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import { fetchApprovedBookings, getReportBusinessUnits, rankBy } from "@/lib/reporting";
-import { ReportFilters, ReportTabs, KpiCard, RankTable, parseReportParams } from "@/components/reports";
+import { ReportFilters, ReportTabs, KpiCard, RankTable, ReportExportButtons, parseReportParams } from "@/components/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,7 @@ export default async function RevenueByPlatformReport({ searchParams }: { search
       <PageHeader title="Revenue Share by Platform" subtitle="Net revenue split across media platforms (Print, Digital, TV, Radio, Outdoor, Website)." />
       <ReportTabs active="/reports/revenue-platform" query={query} />
       <ReportFilters basePath="/reports/revenue-platform" units={units} bu={sp.bu} year={String(year)} month={sp.month} currency={currency} years={years} showMonth />
+      <ReportExportButtons reportKey="platform" query={query} />
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard label={`Total revenue · ${currency}`} value={formatFils(total, { currency })} sub={`${rows.length} bookings`} />
         <KpiCard label="Platforms" value={String(ranked.length)} />
