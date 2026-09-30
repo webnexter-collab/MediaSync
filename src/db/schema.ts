@@ -696,6 +696,10 @@ export const bookingOrders = pgTable(
     notes: text("notes"),
     terms: text("terms"), // null = use default T&C content
     createdBy: integer("created_by").references(() => users.id),
+    // Approval workflow (Account Group Manager approves after client confirmation)
+    submittedAt: timestamp("submitted_at"),
+    approvedBy: integer("approved_by").references(() => users.id),
+    approvedAt: timestamp("approved_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

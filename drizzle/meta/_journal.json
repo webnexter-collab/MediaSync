@@ -71,6 +71,13 @@
       "when": 1790703688532,
       "tag": "0009_business_units_agency_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790770601505,
+      "tag": "0010_bo_approval_metadata",
+      "breakpoints": true
     }
   ]
 }

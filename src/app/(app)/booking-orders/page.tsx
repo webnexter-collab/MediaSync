@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
 const COMPANY_ID = 1;
 
 const STATUS_TONE: Record<string, "good" | "neutral" | "muted"> = {
-  draft: "muted", sent: "neutral", confirmed: "good", invoiced: "good", cancelled: "muted",
+  draft: "muted", pending_approval: "neutral", approved: "good", sent: "neutral", confirmed: "good", invoiced: "good", cancelled: "muted",
+};
+const STATUS_LABEL: Record<string, string> = {
+  draft: "Draft", pending_approval: "Pending", approved: "Approved", sent: "Sent", confirmed: "Confirmed", invoiced: "Invoiced", cancelled: "Cancelled",
 };
 
 export default async function BookingOrdersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
@@ -61,7 +64,7 @@ export default async function BookingOrdersPage({ searchParams }: { searchParams
                   <td className="px-5 py-3 text-muted">{b.campaign ?? "—"}</td>
                   <td className="px-5 py-3 tnum text-muted">{b.issueDate}</td>
                   <td className="px-5 py-3 text-right tnum">{b.currency} {formatFils(b.grandTotalFils, { withSymbol: false })}</td>
-                  <td className="px-5 py-3"><Badge tone={STATUS_TONE[b.status] ?? "muted"}>{b.status}</Badge></td>
+                  <td className="px-5 py-3"><Badge tone={STATUS_TONE[b.status] ?? "muted"}>{STATUS_LABEL[b.status] ?? b.status}</Badge></td>
                 </tr>
               ))}
             </tbody>

@@ -5,12 +5,23 @@ import { db } from "@/db";
 import { bookingOrders, bookingOrderLines, businessUnits, salespeople, industries } from "@/db/schema";
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
 import { formatFils } from "@/lib/money";
-import { setBookingOrderStatus, convertBookingOrderToInvoice } from "@/actions/booking-orders";
+import {
+  setBookingOrderStatus, convertBookingOrderToInvoice,
+  submitBookingOrderForApproval, approveBookingOrder, rejectBookingOrder,
+} from "@/actions/booking-orders";
+import { getSession } from "@/lib/auth";
+import { canApprove } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 const COMPANY_ID = 1;
 const MEDIA_LABEL: Record<string, string> = { print: "Print", digital: "Digital", radio: "Radio", tv: "TV", website: "Website", outdoor: "Outdoor" };
+const STATUS_TONE: Record<string, "good" | "neutral" | "muted"> = {
+  draft: "muted", pending_approval: "neutral", approved: "good", sent: "neutral", confirmed: "good", invoiced: "good", cancelled: "muted",
+};
+const STATUS_LABEL: Record<string, string> = {
+  draft: "Draft", pending_approval: "Pending approval", approved: "Approved", sent: "Sent", confirmed: "Confirmed", invoiced: "Invoiced", cancelled: "Cancelled",
+};
 
 function parseDays(json: string | null): number[] {
   try {
@@ -29,6 +40,8 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
   const [bo] = await db.select().from(bookingOrders).where(and(eq(bookingOrders.id, boId), eq(bookingOrders.companyId, COMPANY_ID))).limit(1);
   if (!bo) notFound();
   const lines = await db.select().from(bookingOrderLines).where(eq(bookingOrderLines.bookingOrderId, boId)).orderBy(asc(bookingOrderLines.lineNo));
+  const session = await getSession();
+  const mayApprove = canApprove(session?.role);
 
   const [buRow, spRow, indRow] = await Promise.all([
     bo.businessUnitId ? db.select({ name: businessUnits.name }).from(businessUnits).where(eq(businessUnits.id, bo.businessUnitId)).limit(1) : Promise.resolve([]),
@@ -60,18 +73,31 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Badge tone={bo.status === "confirmed" || bo.status === "invoiced" ? "good" : "muted"}>{bo.status}</Badge>
+        <Badge tone={STATUS_TONE[bo.status] ?? "muted"}>{STATUS_LABEL[bo.status] ?? bo.status}</Badge>
+
         {bo.status === "draft" && (
+          <form action={submitBookingOrderForApproval.bind(null, bo.id)}><button className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-white hover:bg-ink-2">Submit for approval</button></form>
+        )}
+        {bo.status === "pending_approval" && mayApprove && (
+          <>
+            <form action={approveBookingOrder.bind(null, bo.id)}><button className="rounded-lg bg-teal px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">Approve</button></form>
+            <form action={rejectBookingOrder.bind(null, bo.id)}><button className="rounded-lg border border-line-2 bg-surface px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/5">Reject</button></form>
+          </>
+        )}
+        {bo.status === "pending_approval" && !mayApprove && (
+          <span className="text-xs text-muted">Awaiting Account Group Manager approval.</span>
+        )}
+        {bo.status === "approved" && (
           <form action={setBookingOrderStatus.bind(null, bo.id, "sent")}><button className="rounded-lg border border-line-2 bg-surface px-3 py-1.5 text-xs font-medium hover:bg-bg">Mark sent</button></form>
         )}
-        {(bo.status === "draft" || bo.status === "sent") && (
+        {(bo.status === "approved" || bo.status === "sent") && (
           <form action={setBookingOrderStatus.bind(null, bo.id, "confirmed")}><button className="rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-white hover:bg-ink-2">Confirm</button></form>
+        )}
+        {(bo.status === "approved" || bo.status === "sent" || bo.status === "confirmed") && (
+          <form action={convertBookingOrderToInvoice.bind(null, bo.id)}><button className="rounded-lg bg-teal px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">Create Invoice</button></form>
         )}
         {bo.status !== "cancelled" && bo.status !== "invoiced" && (
           <form action={setBookingOrderStatus.bind(null, bo.id, "cancelled")}><button className="rounded-lg border border-line-2 bg-surface px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/5">Cancel</button></form>
-        )}
-        {(bo.status === "confirmed" || bo.status === "sent") && (
-          <form action={convertBookingOrderToInvoice.bind(null, bo.id)}><button className="rounded-lg bg-teal px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">Create Invoice</button></form>
         )}
         {bo.status === "invoiced" && (
           <Link href="/invoices" className="rounded-lg border border-line-2 bg-surface px-3 py-1.5 text-xs font-medium text-teal-ink hover:bg-bg">View invoices →</Link>

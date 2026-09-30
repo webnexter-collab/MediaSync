@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { bookingOrders, bookingOrderLines, documents, documentLines } from "@/db/schema";
-import { assertCanWrite, getSession } from "@/lib/auth";
+import { assertCanWrite, assertCanApprove, getSession } from "@/lib/auth";
 import { bookingOrderSchema, type FormState, type BookingOrderInput } from "@/lib/validators";
 import { toFils } from "@/lib/money";
 import { computeBoLine, computeBoTotals } from "@/lib/booking-order";
@@ -357,4 +357,47 @@ export async function setBookingOrderStatus(
     .where(and(eq(bookingOrders.id, id), eq(bookingOrders.companyId, COMPANY_ID)));
   revalidatePath(`/booking-orders/${id}`);
   revalidatePath("/booking-orders");
+  revalidatePath("/tracker");
+}
+
+/* --------------------------- Approval workflow ---------------------------- *
+ * Sales Manager creates a draft BO and submits it; the Account Group Manager
+ * approves it after the client confirms. Reporting counts approved BOs.
+ * Lifecycle: draft → pending_approval → approved → sent → confirmed → invoiced.
+ * -------------------------------------------------------------------------- */
+
+/** Sales submits a draft for the Account Group Manager to approve. */
+export async function submitBookingOrderForApproval(id: number) {
+  await assertCanWrite();
+  await db
+    .update(bookingOrders)
+    .set({ status: "pending_approval", submittedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(bookingOrders.id, id), eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.status, "draft")));
+  revalidatePath(`/booking-orders/${id}`);
+  revalidatePath("/booking-orders");
+  revalidatePath("/tracker");
+}
+
+/** Account Group Manager approves a submitted BO. */
+export async function approveBookingOrder(id: number) {
+  const session = await assertCanApprove();
+  await db
+    .update(bookingOrders)
+    .set({ status: "approved", approvedBy: session.userId, approvedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(bookingOrders.id, id), eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.status, "pending_approval")));
+  revalidatePath(`/booking-orders/${id}`);
+  revalidatePath("/booking-orders");
+  revalidatePath("/tracker");
+}
+
+/** Account Group Manager sends a submitted BO back to draft for revision. */
+export async function rejectBookingOrder(id: number) {
+  await assertCanApprove();
+  await db
+    .update(bookingOrders)
+    .set({ status: "draft", submittedAt: null, updatedAt: new Date() })
+    .where(and(eq(bookingOrders.id, id), eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.status, "pending_approval")));
+  revalidatePath(`/booking-orders/${id}`);
+  revalidatePath("/booking-orders");
+  revalidatePath("/tracker");
 }

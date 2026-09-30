@@ -65,3 +65,10 @@ export function isDemo(role: Role | undefined): boolean {
 export function canWrite(role: Role | undefined): boolean {
   return role === "admin" || role === "user" || role === "accountant" || role === "sales";
 }
+/**
+ * Who may approve a Booking Order (stands in for the Account Group Manager until
+ * full RBAC lands). Sales can submit for approval but not approve their own BOs.
+ */
+export function canApprove(role: Role | undefined): boolean {
+  return role === "admin" || role === "user" || role === "accountant";
+}

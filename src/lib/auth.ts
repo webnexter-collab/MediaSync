@@ -6,6 +6,7 @@ import {
   SESSION_COOKIE,
   verifySessionToken,
   canWrite,
+  canApprove,
   isAdmin,
   isDemo,
   type SessionUser,
@@ -38,6 +39,16 @@ export async function assertCanWrite(): Promise<SessionUser> {
   if (!session) throw new Error("You must be signed in.");
   if (isDemo(session.role) || !canWrite(session.role)) {
     throw new Error("Demo accounts are read-only — saving is disabled.");
+  }
+  return session;
+}
+
+/** Throw unless the account may approve booking orders (Account Group Manager role). */
+export async function assertCanApprove(): Promise<SessionUser> {
+  const session = await getSession();
+  if (!session) throw new Error("You must be signed in.");
+  if (!canApprove(session.role)) {
+    throw new Error("Only an Account Group Manager can approve booking orders.");
   }
   return session;
 }

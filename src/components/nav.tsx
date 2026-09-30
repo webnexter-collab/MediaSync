@@ -7,7 +7,7 @@ import {
   Banknote, Users, Building2, Package, Landmark, TrendingUp, TrendingDown,
   FileUser, FileBox, ShieldCheck, LogOut, Settings, X, Megaphone, Coins,
   Percent, ClipboardList, Tags, Contact, UserRound, Ruler,
-  Globe, Factory, Network, Target, type LucideIcon,
+  Globe, Factory, Network, Target, Table2, type LucideIcon,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import type { Role } from "@/lib/session";
@@ -16,7 +16,10 @@ type Item = { href: string; label: string; icon: LucideIcon };
 type Group = { title: string; items: Item[]; adminOnly?: boolean };
 
 const groups: Group[] = [
-  { title: "Overview", items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }] },
+  { title: "Overview", items: [
+    { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/tracker", label: "Tracker", icon: Table2 },
+  ]},
   { title: "Bookings", items: [
     { href: "/booking-orders", label: "Booking Orders", icon: ClipboardList },
     { href: "/rate-cards", label: "Rate Cards", icon: Tags },
