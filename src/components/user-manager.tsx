@@ -1,13 +1,16 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { createUser, deleteUser } from "@/actions/users";
+import { createUser, updateUser, deleteUser } from "@/actions/users";
 import { Card, Badge } from "@/components/ui";
 import type { FormState } from "@/lib/validators";
 
 type UserRow = { id: number; name: string; email: string; role: string; isActive: boolean };
 
+const ROLE_OPTIONS: [string, string][] = [
+  ["admin", "Administrator"], ["accountant", "Accounts"], ["sales", "Sales"], ["user", "User"], ["demo", "Demo user"],
+];
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrator", accountant: "Accounts", sales: "Sales",
   user: "User", demo: "Demo user", salesperson: "Sales", viewer: "Viewer",
@@ -29,7 +32,9 @@ function CreateButton() {
 
 export function UserManager({ users, currentUserId }: { users: UserRow[]; currentUserId: number }) {
   const [state, formAction] = useActionState<FormState, FormData>(createUser, { ok: false });
+  const [editingId, setEditingId] = useState<number | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const inp = "field h-9 w-full rounded-md border border-line-2 bg-surface px-2 text-sm";
 
   useEffect(() => {
     if (state.ok) formRef.current?.reset();
@@ -92,6 +97,39 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
           <tbody>
             {users.map((u) => {
               const del = deleteUser.bind(null, u.id);
+              if (editingId === u.id) {
+                return (
+                  <tr key={u.id} className="border-b border-line bg-bg/40 last:border-0">
+                    <td colSpan={5} className="px-5 py-3">
+                      <form action={updateUser.bind(null, u.id)} className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1.3fr_1.6fr_1fr_auto_auto_auto]">
+                        <div>
+                          <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted">Name</label>
+                          <input name="name" defaultValue={u.name} className={inp} required />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted">Email</label>
+                          <input name="email" type="email" defaultValue={u.email} className={inp} required />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted">Role</label>
+                          <select name="role" defaultValue={u.role} className={inp}>
+                            {ROLE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted">New password</label>
+                          <input name="password" type="text" autoComplete="off" placeholder="optional" className={inp + " w-36"} />
+                        </div>
+                        <label className="flex h-9 items-center gap-1.5 text-xs text-muted"><input type="checkbox" name="isActive" defaultChecked={u.isActive} /> Active</label>
+                        <div className="flex gap-2">
+                          <button className="inline-flex h-9 items-center rounded-lg bg-ink px-4 text-sm font-medium text-white hover:bg-ink-2">Save</button>
+                          <button type="button" onClick={() => setEditingId(null)} className="inline-flex h-9 items-center rounded-lg border border-line-2 bg-surface px-3 text-sm font-medium hover:bg-bg">Cancel</button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                );
+              }
               return (
                 <tr key={u.id} className="border-b border-line last:border-0">
                   <td className="px-5 py-3 font-medium text-ink">{u.name}</td>
@@ -99,13 +137,16 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
                   <td className="px-5 py-3"><Badge tone={ROLE_TONE[u.role] ?? "neutral"}>{ROLE_LABEL[u.role] ?? u.role}</Badge></td>
                   <td className="px-5 py-3">{u.isActive ? <Badge tone="good">Active</Badge> : <Badge tone="muted">Inactive</Badge>}</td>
                   <td className="px-5 py-3 text-right">
-                    {u.id === currentUserId ? (
-                      <span className="text-xs text-muted">You</span>
-                    ) : (
-                      <form action={del} className="inline">
-                        <button className="text-xs font-medium text-danger hover:underline">Delete</button>
-                      </form>
-                    )}
+                    <div className="flex items-center justify-end gap-3">
+                      <button type="button" onClick={() => setEditingId(u.id)} className="text-xs font-medium text-teal-ink hover:underline">Edit</button>
+                      {u.id === currentUserId ? (
+                        <span className="text-xs text-muted">You</span>
+                      ) : (
+                        <form action={del} className="inline">
+                          <button className="text-xs font-medium text-danger hover:underline">Delete</button>
+                        </form>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
