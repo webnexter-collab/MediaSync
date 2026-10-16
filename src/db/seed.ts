@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "./index";
 import {
@@ -187,6 +187,13 @@ async function main() {
   if (buId.IRQ && !haveBu.has(buId.IRQ)) spToInsert.push({ companyId: 1, name: "Iraq Management", businessUnitId: buId.IRQ });
   if (spToInsert.length) await db.insert(salespeople).values(spToInsert);
 
+  // Link the Shakeel salesperson to his login email so per-user scoping (match
+  // by email) works for the demo salesperson account.
+  await db
+    .update(salespeople)
+    .set({ email: "shakeel@mindsetmedia.ae" })
+    .where(and(eq(salespeople.companyId, 1), eq(salespeople.name, "Shakeel Shaikh")));
+
   await db
     .insert(items)
     .values([
@@ -210,6 +217,7 @@ async function main() {
     .values([
       { companyId: 1, email: "admin@mindsetmedia.ae", name: "Administrator", passwordHash: hash("admin123"), role: "admin" },
       { companyId: 1, email: "sales@mindsetmedia.ae", name: "Sales User", passwordHash: hash("sales123"), role: "sales" },
+      { companyId: 1, email: "shakeel@mindsetmedia.ae", name: "Shakeel Shaikh", passwordHash: hash("shakeel123"), role: "salesperson" },
       { companyId: 1, email: "demo@mindsetmedia.ae", name: "Demo User", passwordHash: hash("demo123"), role: "demo" },
     ])
     .onConflictDoNothing();

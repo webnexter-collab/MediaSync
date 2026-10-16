@@ -4,6 +4,9 @@ import { salespeople, salesTargets, businessUnits } from "@/db/schema";
 import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { saveSalesTargets } from "@/actions/masters";
 import { formatFils, toAed } from "@/lib/money";
+import { getSession } from "@/lib/auth";
+import { isSalesperson } from "@/lib/session";
+import { salespersonIdForEmail } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +20,17 @@ export default async function SalesTargetsPage({ searchParams }: { searchParams:
   const year = Number(sp.year) || now.getFullYear();
   const years = [year - 1, year, year + 1];
 
+  const session = await getSession();
+  const readOnly = isSalesperson(session?.role);
+  const ownId = readOnly ? await salespersonIdForEmail(session?.email) : null;
+
   let sales: (typeof salespeople.$inferSelect & { buName: string | null })[] = [];
   let targets: (typeof salesTargets.$inferSelect)[] = [];
   let dbError = false;
   try {
+    const whereSales = readOnly
+      ? and(eq(salespeople.companyId, COMPANY_ID), eq(salespeople.isActive, true), eq(salespeople.id, ownId ?? -1))
+      : and(eq(salespeople.companyId, COMPANY_ID), eq(salespeople.isActive, true));
     [sales, targets] = await Promise.all([
       db
         .select({
@@ -30,7 +40,7 @@ export default async function SalesTargetsPage({ searchParams }: { searchParams:
         })
         .from(salespeople)
         .leftJoin(businessUnits, eq(businessUnits.id, salespeople.businessUnitId))
-        .where(and(eq(salespeople.companyId, COMPANY_ID), eq(salespeople.isActive, true)))
+        .where(whereSales)
         .orderBy(asc(salespeople.name)),
       db.select().from(salesTargets).where(and(eq(salesTargets.companyId, COMPANY_ID), eq(salesTargets.year, year))),
     ]);
@@ -84,9 +94,9 @@ export default async function SalesTargetsPage({ searchParams }: { searchParams:
                         <div className="tnum text-sm font-semibold text-ink">{formatFils(annualFils, { currency, withSymbol: true })}</div>
                       </div>
                       <label className="flex items-center gap-1.5 text-xs text-muted">Currency
-                        <input name="currency" defaultValue={currency} maxLength={3} className="field h-8 w-16 rounded-md border border-line-2 bg-surface px-2 text-center text-xs uppercase" />
+                        <input name="currency" defaultValue={currency} maxLength={3} disabled={readOnly} className="field h-8 w-16 rounded-md border border-line-2 bg-surface px-2 text-center text-xs uppercase disabled:opacity-60" />
                       </label>
-                      <button className="inline-flex h-9 items-center rounded-lg bg-ink px-4 text-sm font-medium text-white hover:bg-ink-2">Save</button>
+                      {!readOnly && <button className="inline-flex h-9 items-center rounded-lg bg-ink px-4 text-sm font-medium text-white hover:bg-ink-2">Save</button>}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
@@ -95,7 +105,7 @@ export default async function SalesTargetsPage({ searchParams }: { searchParams:
                       return (
                         <label key={label} className="block">
                           <span className="mb-1 block text-[10px] uppercase tracking-wide text-muted">{label}</span>
-                          <input name={`m${i + 1}`} defaultValue={fils ? String(toAed(fils)) : ""} inputMode="decimal" placeholder="0" className={inp} />
+                          <input name={`m${i + 1}`} defaultValue={fils ? String(toAed(fils)) : ""} inputMode="decimal" placeholder="0" readOnly={readOnly} className={inp + (readOnly ? " bg-bg/50" : "")} />
                         </label>
                       );
                     })}

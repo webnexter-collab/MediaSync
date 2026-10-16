@@ -10,9 +10,14 @@ import { PageHeader } from "@/components/ui";
 import { formatFils, toAed } from "@/lib/money";
 import { agedReceivables, agedPayables, BUCKET_KEYS, BUCKET_LABELS } from "@/lib/reports";
 import { AgingChart, CashDonut } from "@/components/dashboard-charts";
+import { getSession } from "@/lib/auth";
+import { canSeeFinance, isSalesperson } from "@/lib/session";
+import { salespersonIdForEmail } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 const COMPANY_ID = 1;
+
+type ScopeOpts = { salespersonId: number | null; includeFinance: boolean };
 
 type Metrics = {
   receivable: number; payable: number; cash: number; overdue: number;
@@ -24,22 +29,32 @@ type Metrics = {
   recentBos: { number: string; party: string; total: number; currency: string; status: string; date: string; id: number }[];
 };
 
-async function loadMetrics(): Promise<Metrics | null> {
+async function loadMetrics(opts: ScopeOpts): Promise<Metrics | null> {
+  const { salespersonId, includeFinance } = opts;
+  const boScope = salespersonId
+    ? and(eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.salespersonId, salespersonId))
+    : eq(bookingOrders.companyId, COMPANY_ID);
   try {
-    const [recv, pay] = await Promise.all([agedReceivables(), agedPayables()]);
-
-    const accounts = await db.select().from(bankAccounts).where(eq(bankAccounts.companyId, COMPANY_ID));
-    const flows = await db
-      .select({ bankAccountId: payments.bankAccountId, direction: payments.direction, total: sql<number>`coalesce(sum(${payments.amountFils}),0)::bigint` })
-      .from(payments).where(eq(payments.companyId, COMPANY_ID)).groupBy(payments.bankAccountId, payments.direction);
-    const balOf = (id: number, opening: number) => {
-      let b = opening;
-      for (const f of flows) if (f.bankAccountId === id) b += f.direction === "receipt" ? Number(f.total) : -Number(f.total);
-      return b;
-    };
-    const cashAccounts = accounts.filter((a) => a.type !== "credit_card");
-    const cashByAccount = cashAccounts.map((a) => ({ name: a.name, value: toAed(balOf(a.id, a.openingBalanceFils)) }));
-    const cash = cashAccounts.reduce((s, a) => s + balOf(a.id, a.openingBalanceFils), 0);
+    // Finance metrics are only computed for finance roles.
+    let recv = { grand: 0, totals: { current: 0, b1_30: 0, b31_60: 0, b61_90: 0, b90: 0 } } as Awaited<ReturnType<typeof agedReceivables>>;
+    let pay = recv;
+    let cash = 0;
+    let cashByAccount: { name: string; value: number }[] = [];
+    if (includeFinance) {
+      [recv, pay] = await Promise.all([agedReceivables(), agedPayables()]);
+      const accounts = await db.select().from(bankAccounts).where(eq(bankAccounts.companyId, COMPANY_ID));
+      const flows = await db
+        .select({ bankAccountId: payments.bankAccountId, direction: payments.direction, total: sql<number>`coalesce(sum(${payments.amountFils}),0)::bigint` })
+        .from(payments).where(eq(payments.companyId, COMPANY_ID)).groupBy(payments.bankAccountId, payments.direction);
+      const balOf = (id: number, opening: number) => {
+        let b = opening;
+        for (const f of flows) if (f.bankAccountId === id) b += f.direction === "receipt" ? Number(f.total) : -Number(f.total);
+        return b;
+      };
+      const cashAccounts = accounts.filter((a) => a.type !== "credit_card");
+      cashByAccount = cashAccounts.map((a) => ({ name: a.name, value: toAed(balOf(a.id, a.openingBalanceFils)) }));
+      cash = cashAccounts.reduce((s, a) => s + balOf(a.id, a.openingBalanceFils), 0);
+    }
 
     const [custCount, suppCount, openInvoices, openPOs] = await Promise.all([
       db.$count(customers, eq(customers.companyId, COMPANY_ID)),
@@ -79,15 +94,15 @@ async function loadMetrics(): Promise<Metrics | null> {
     const typeLabel: Record<string, string> = { invoice: "Invoice", purchase_order: "Purchase order" };
 
     const [boTotal, boDraft, boConfirmed, boInvoiced] = await Promise.all([
-      db.$count(bookingOrders, eq(bookingOrders.companyId, COMPANY_ID)),
-      db.$count(bookingOrders, and(eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.status, "draft"))),
-      db.$count(bookingOrders, and(eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.status, "confirmed"))),
-      db.$count(bookingOrders, and(eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.status, "invoiced"))),
+      db.$count(bookingOrders, boScope),
+      db.$count(bookingOrders, and(boScope, eq(bookingOrders.status, "draft"))),
+      db.$count(bookingOrders, and(boScope, eq(bookingOrders.status, "confirmed"))),
+      db.$count(bookingOrders, and(boScope, eq(bookingOrders.status, "invoiced"))),
     ]);
     const recentBos = await db
       .select({ id: bookingOrders.id, number: bookingOrders.number, party: bookingOrders.toName, total: bookingOrders.grandTotalFils, currency: bookingOrders.currency, status: bookingOrders.status, date: bookingOrders.issueDate })
       .from(bookingOrders)
-      .where(eq(bookingOrders.companyId, COMPANY_ID))
+      .where(boScope)
       .orderBy(desc(bookingOrders.id))
       .limit(6);
 
@@ -113,7 +128,11 @@ async function loadMetrics(): Promise<Metrics | null> {
 }
 
 export default async function Dashboard() {
-  const m = await loadMetrics();
+  const session = await getSession();
+  const includeFinance = canSeeFinance(session?.role);
+  const salesperson = isSalesperson(session?.role);
+  const salespersonId = salesperson ? await salespersonIdForEmail(session?.email) : null;
+  const m = await loadMetrics({ salespersonId, includeFinance });
 
   if (!m) {
     return (
@@ -163,7 +182,8 @@ export default async function Dashboard() {
         })}
       </div>
 
-      {/* Money stat cards */}
+      {/* Money stat cards — finance roles only */}
+      {includeFinance && (<>
       <div className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-muted">Finance</div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => {
@@ -197,6 +217,7 @@ export default async function Dashboard() {
           <CashDonut data={m.cashByAccount} />
         </div>
       </div>
+      </>)}
 
       {/* Recent booking orders */}
       <div className="mt-5 rounded-2xl border border-line bg-surface">
@@ -223,6 +244,7 @@ export default async function Dashboard() {
 
       {/* Recent + quick actions */}
       <div className="mt-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {includeFinance && (
         <div className="lg:col-span-2 rounded-2xl border border-line bg-surface">
           <div className="flex items-center justify-between border-b border-line px-5 py-3">
             <h2 className="font-display text-lg font-semibold text-ink">Recent documents</h2>
@@ -246,16 +268,22 @@ export default async function Dashboard() {
             </div>
           )}
         </div>
+        )}
         <div className="rounded-2xl border border-line bg-surface p-5">
           <h2 className="mb-3 font-display text-lg font-semibold text-ink">Quick actions</h2>
           <div className="space-y-2">
-            {[
+            {(salesperson
+              ? [
+                  { href: "/booking-orders/new", label: "New booking order", icon: ClipboardList },
+                  { href: "/proforma-invoices/new", label: "New proforma", icon: FileText },
+                ]
+              : [
               { href: "/booking-orders/new", label: "New booking order", icon: ClipboardList },
               { href: "/rate-cards/new", label: "New rate card", icon: Tags },
               { href: "/invoices/new", label: "New invoice", icon: FileText },
               { href: "/purchase-orders/new", label: "New purchase order", icon: ShoppingCart },
               { href: "/receipts/new", label: "Record receipt", icon: Plus },
-            ].map((a) => {
+            ]).map((a) => {
               const Icon = a.icon;
               return (
                 <Link key={a.href} href={a.href} className="flex items-center gap-2.5 rounded-lg border border-line-2 bg-surface px-3 py-2.5 text-sm font-medium text-fg transition-colors hover:bg-bg">

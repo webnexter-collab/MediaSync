@@ -12,8 +12,18 @@ import {
 import { logout } from "@/actions/auth";
 import type { Role } from "@/lib/session";
 
-type Item = { href: string; label: string; icon: LucideIcon };
+type Item = { href: string; label: string; icon: LucideIcon; financeOnly?: boolean };
 type Group = { title: string; items: Item[]; adminOnly?: boolean };
+
+// Minimal menu for the restricted salesperson group (own data only).
+const salespersonGroups: Group[] = [
+  { title: "Overview", items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }] },
+  { title: "Sales", items: [
+    { href: "/booking-orders", label: "Booking Orders", icon: ClipboardList },
+    { href: "/proforma-invoices", label: "Proforma Invoices", icon: FileText },
+    { href: "/sales-targets", label: "My Targets", icon: Target },
+  ]},
+];
 
 const groups: Group[] = [
   { title: "Overview", items: [
@@ -35,7 +45,7 @@ const groups: Group[] = [
   ]},
   { title: "Purchasing", items: [
     { href: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
-    { href: "/payments", label: "Payments", icon: Banknote },
+    { href: "/payments", label: "Payments", icon: Banknote, financeOnly: true },
   ]},
   { title: "CRM", items: [
     { href: "/customers", label: "Accounts", icon: Users },
@@ -45,7 +55,7 @@ const groups: Group[] = [
     { href: "/agency-groups", label: "Agency Groups", icon: Network },
     { href: "/media-channels", label: "Media Channels", icon: Megaphone },
     { href: "/items", label: "Items", icon: Package },
-    { href: "/bank-accounts", label: "Bank & Cash", icon: Landmark },
+    { href: "/bank-accounts", label: "Bank & Cash", icon: Landmark, financeOnly: true },
   ]},
   { title: "Reports", items: [
     { href: "/reports/revenue-monthly", label: "Revenue Reports", icon: BarChart3 },
@@ -68,7 +78,7 @@ const groups: Group[] = [
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrator", user: "User", demo: "Demo user",
-  accountant: "Accountant", sales: "Sales", viewer: "Viewer",
+  accountant: "Accountant", sales: "Sales", salesperson: "Salesperson", viewer: "Viewer",
 };
 
 export function Nav({
@@ -83,7 +93,12 @@ export function Nav({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const visible = groups.filter((g) => !g.adminOnly || role === "admin");
+  const canFinance = role === "admin" || role === "accountant";
+  const source = role === "salesperson" ? salespersonGroups : groups;
+  const visible = source
+    .filter((g) => !g.adminOnly || role === "admin")
+    .map((g) => ({ ...g, items: g.items.filter((it) => !it.financeOnly || canFinance) }))
+    .filter((g) => g.items.length > 0);
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-line bg-surface">
       <div className="flex items-center gap-2.5 px-6 py-6">

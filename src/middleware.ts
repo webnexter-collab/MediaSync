@@ -22,6 +22,33 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // ---- Role-based route access (defence in depth; nav hiding is cosmetic) ----
+  if (session && !isPublic) {
+    const role = session.role;
+    const startsWithAny = (prefixes: string[]) =>
+      prefixes.some((p) => pathname === p || pathname.startsWith(p + "/"));
+
+    // Company configuration & user admin — admin only.
+    const ADMIN_ONLY = ["/business-units", "/agency-groups", "/industries", "/currencies", "/tax-rules", "/uoms", "/salespeople", "/media-channels", "/admin"];
+    // Bank & cash and payments — admin or accountant only.
+    const FINANCE_ONLY = ["/bank-accounts", "/payments"];
+
+    if (startsWithAny(ADMIN_ONLY) && role !== "admin") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+    if (startsWithAny(FINANCE_ONLY) && !(role === "admin" || role === "accountant")) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+
+    // Restricted salesperson group: whitelist only their own surfaces.
+    if (role === "salesperson") {
+      const SALESPERSON_ALLOW = ["/booking-orders", "/proforma-invoices", "/sales-targets", "/account"];
+      if (!(pathname === "/" || startsWithAny(SALESPERSON_ALLOW))) {
+        return NextResponse.redirect(new URL("/", req.url));
+      }
+    }
+  }
+
   return NextResponse.next();
 }
 

@@ -4,6 +4,9 @@ import { db } from "@/db";
 import { bookingOrders } from "@/db/schema";
 import { PageHeader, LinkButton, Card, Badge, EmptyState } from "@/components/ui";
 import { formatFils } from "@/lib/money";
+import { getSession } from "@/lib/auth";
+import { isSalesperson } from "@/lib/session";
+import { salespersonIdForEmail } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +21,15 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function BookingOrdersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
+  const session = await getSession();
+  const ownId = isSalesperson(session?.role) ? await salespersonIdForEmail(session?.email) : null;
+  const mineOnly = isSalesperson(session?.role) ? eq(bookingOrders.salespersonId, ownId ?? -1) : undefined;
   let rows: (typeof bookingOrders.$inferSelect)[] = [];
   let dbError = false;
   try {
     const where = q
-      ? and(eq(bookingOrders.companyId, COMPANY_ID), or(ilike(bookingOrders.number, `%${q}%`), ilike(bookingOrders.toName, `%${q}%`), ilike(bookingOrders.campaign, `%${q}%`)))
-      : eq(bookingOrders.companyId, COMPANY_ID);
+      ? and(eq(bookingOrders.companyId, COMPANY_ID), mineOnly, or(ilike(bookingOrders.number, `%${q}%`), ilike(bookingOrders.toName, `%${q}%`), ilike(bookingOrders.campaign, `%${q}%`)))
+      : and(eq(bookingOrders.companyId, COMPANY_ID), mineOnly);
     rows = await db.select().from(bookingOrders).where(where).orderBy(desc(bookingOrders.id)).limit(200);
   } catch {
     dbError = true;

@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 
-export type Role = "admin" | "user" | "demo" | "accountant" | "sales" | "viewer";
+export type Role = "admin" | "user" | "demo" | "accountant" | "sales" | "salesperson" | "viewer";
 
 export type SessionUser = {
   userId: number;
@@ -63,12 +63,25 @@ export function isDemo(role: Role | undefined): boolean {
   return role === "demo";
 }
 export function canWrite(role: Role | undefined): boolean {
-  return role === "admin" || role === "user" || role === "accountant" || role === "sales";
+  return role === "admin" || role === "user" || role === "accountant" || role === "sales" || role === "salesperson";
 }
 /**
  * Who may approve a Booking Order (stands in for the Account Group Manager until
- * full RBAC lands). Sales can submit for approval but not approve their own BOs.
+ * full RBAC lands). Sales/salespeople can submit for approval but not approve.
  */
 export function canApprove(role: Role | undefined): boolean {
   return role === "admin" || role === "user" || role === "accountant";
+}
+
+/** The restricted salesperson group — sees only their own data, no finance/admin. */
+export function isSalesperson(role: Role | undefined): boolean {
+  return role === "salesperson";
+}
+/** Finance surfaces (bank & cash, cash dashboard) are limited to these roles. */
+export function canSeeFinance(role: Role | undefined): boolean {
+  return role === "admin" || role === "accountant";
+}
+/** Company configuration / masters are admin-only. */
+export function canManageConfig(role: Role | undefined): boolean {
+  return role === "admin";
 }
