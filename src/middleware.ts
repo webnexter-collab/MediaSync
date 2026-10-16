@@ -40,10 +40,13 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
-    // Restricted salesperson group: whitelist only their own surfaces.
-    if (role === "salesperson") {
-      const SALESPERSON_ALLOW = ["/booking-orders", "/proforma-invoices", "/sales-targets", "/account"];
-      if (!(pathname === "/" || startsWithAny(SALESPERSON_ALLOW))) {
+    // Restricted Sales (salesperson) group: whitelist only their own surfaces.
+    if (role === "sales" || role === "salesperson") {
+      const SALES_ALLOW = [
+        "/booking-orders", "/proforma-invoices", "/sales-targets", "/account",
+        "/reports/revenue-sales", "/reports/export",
+      ];
+      if (!(pathname === "/" || startsWithAny(SALES_ALLOW))) {
         return NextResponse.redirect(new URL("/", req.url));
       }
     }

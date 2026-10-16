@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { businessUnits, agencyGroups, salespeople, industries, salesTargets } from "@/db/schema";
 import { assertCanWrite } from "@/lib/auth";
+import { canManageTargets } from "@/lib/session";
 import { toFils } from "@/lib/money";
 
 const COMPANY_ID = 1;
@@ -159,7 +160,11 @@ export async function saveSalesTargets(
   year: number,
   formData: FormData,
 ): Promise<void> {
-  await assertCanWrite();
+  const session = await assertCanWrite();
+  // Targets are set by Administrators/Accounts only — salespeople cannot change them.
+  if (!canManageTargets(session.role)) {
+    throw new Error("Only Administrators and Accounts can set sales targets.");
+  }
   const [sp] = await db
     .select({ businessUnitId: salespeople.businessUnitId })
     .from(salespeople)

@@ -2,6 +2,9 @@ import { PageHeader, Card } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import { fetchApprovedBookings, getReportBusinessUnits, getSalesTargetsByPerson, MONTHS } from "@/lib/reporting";
 import { ReportFilters, ReportTabs, KpiCard, ReportExportButtons, parseReportParams } from "@/components/reports";
+import { getSession } from "@/lib/auth";
+import { isSalesperson } from "@/lib/session";
+import { salespersonIdForEmail } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +13,13 @@ type SP = { bu?: string; year?: string; month?: string; currency?: string };
 export default async function RevenueBySalesReport({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const { buId, year, month, currency, years } = parseReportParams(sp);
+  // A Sales (salesperson) user sees only their own target-vs-achievement.
+  const session = await getSession();
+  const ownId = isSalesperson(session?.role) ? await salespersonIdForEmail(session?.email) : null;
   const [{ rows }, units, targets] = await Promise.all([
-    fetchApprovedBookings({ buId, year, month, currency }),
+    fetchApprovedBookings({ buId, year, month, currency, salespersonId: ownId }),
     getReportBusinessUnits(),
-    getSalesTargetsByPerson(year, currency, buId),
+    getSalesTargetsByPerson(year, currency, buId, ownId),
   ]);
 
   // Achievement by salesperson (net revenue).

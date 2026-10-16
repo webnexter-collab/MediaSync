@@ -9,11 +9,12 @@ import type { FormState } from "@/lib/validators";
 type UserRow = { id: number; name: string; email: string; role: string; isActive: boolean };
 
 const ROLE_LABEL: Record<string, string> = {
-  admin: "Administrator", user: "User", demo: "Demo user",
-  accountant: "Accountant", sales: "Sales", viewer: "Viewer",
+  admin: "Administrator", accountant: "Accounts", sales: "Sales",
+  user: "User", demo: "Demo user", salesperson: "Sales", viewer: "Viewer",
 };
 const ROLE_TONE: Record<string, "good" | "neutral" | "muted"> = {
-  admin: "good", user: "neutral", demo: "muted",
+  admin: "good", accountant: "neutral", sales: "neutral",
+  user: "neutral", demo: "muted", salesperson: "neutral", viewer: "muted",
 };
 
 function CreateButton() {
@@ -60,8 +61,10 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">Role</label>
-            <select name="role" defaultValue="user" className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm">
+            <select name="role" defaultValue="sales" className="field h-10 w-full rounded-lg border border-line-2 bg-surface px-3 text-sm">
               <option value="admin">Administrator</option>
+              <option value="accountant">Accounts</option>
+              <option value="sales">Sales</option>
               <option value="user">User</option>
               <option value="demo">Demo user</option>
             </select>
@@ -71,7 +74,7 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
           </div>
         </form>
         <div className="border-t border-line px-5 py-3 text-xs text-muted">
-          Administrators can manage users and everything else. Users can create and edit documents. Demo users can only view — no saving, downloads or copying.
+          Administrators manage users, configuration and everything else. Accounts handle finance (invoices, receipts, bank &amp; cash). Sales are salespeople — they see only their own bookings, proformas and targets (targets are set by Administrators/Accounts). Users can create and edit documents. Demo users can only view — no saving or downloads.
         </div>
       </Card>
 

@@ -9,7 +9,7 @@ import type { FormState } from "@/lib/validators";
 import type { Role } from "@/lib/session";
 
 const COMPANY_ID = 1;
-const ALLOWED_ROLES: Role[] = ["admin", "user", "demo"];
+const ALLOWED_ROLES: Role[] = ["admin", "accountant", "sales", "user", "demo"];
 
 export async function createUser(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();

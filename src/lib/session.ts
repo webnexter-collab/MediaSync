@@ -73,9 +73,13 @@ export function canApprove(role: Role | undefined): boolean {
   return role === "admin" || role === "user" || role === "accountant";
 }
 
-/** The restricted salesperson group — sees only their own data, no finance/admin. */
+/**
+ * The restricted Sales (salesperson) group — sees only their own bookings,
+ * proformas and targets, no finance/admin. `salesperson` is the retired legacy
+ * value kept so any un-migrated token still behaves as restricted.
+ */
 export function isSalesperson(role: Role | undefined): boolean {
-  return role === "salesperson";
+  return role === "sales" || role === "salesperson";
 }
 /** Finance surfaces (bank & cash, cash dashboard) are limited to these roles. */
 export function canSeeFinance(role: Role | undefined): boolean {
@@ -84,4 +88,8 @@ export function canSeeFinance(role: Role | undefined): boolean {
 /** Company configuration / masters are admin-only. */
 export function canManageConfig(role: Role | undefined): boolean {
   return role === "admin";
+}
+/** Who may SET salesperson targets — Administrators and Accounts only. */
+export function canManageTargets(role: Role | undefined): boolean {
+  return role === "admin" || role === "accountant";
 }

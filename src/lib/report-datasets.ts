@@ -39,6 +39,7 @@ export type ReportParams = {
   q?: string;
   dim?: string;
   measure?: string;
+  salespersonId?: number | null; // scope to one salesperson (Sales role exports)
 };
 
 function baseParams(p: ReportParams) {
@@ -117,8 +118,9 @@ export async function buildReportDataset(p: ReportParams): Promise<ReportDataset
 
   if (key === "tracker") return buildTrackerDataset(p, buId, year, month);
 
+  const spId = p.salespersonId ?? null;
   const meta = await metaLines(buId, year, month, currency);
-  const { rows } = await fetchApprovedBookings({ buId, year, month, currency });
+  const { rows } = await fetchApprovedBookings({ buId, year, month, currency, salespersonId: spId });
 
   let sections: Section[] = [];
 
@@ -169,7 +171,7 @@ export async function buildReportDataset(p: ReportParams): Promise<ReportDataset
       numericCols: [1, 2, 3], moneyCols: measure.money ? [2] : [],
     }];
   } else if (key === "sales") {
-    sections = [await salesSection(rows, year, month, currency, buId)];
+    sections = [await salesSection(rows, year, month, currency, buId, spId)];
   } else {
     sections = [rankSection(rows, (r) => r.client, "Client", "Unspecified")];
   }
@@ -223,8 +225,8 @@ function topSection(rows: BookingRow[], keyFn: (r: BookingRow) => string | null 
   };
 }
 
-async function salesSection(rows: BookingRow[], year: number, month: number | null, currency: string, buId: number | null): Promise<Section> {
-  const targets = await getSalesTargetsByPerson(year, currency, buId);
+async function salesSection(rows: BookingRow[], year: number, month: number | null, currency: string, buId: number | null, salespersonId?: number | null): Promise<Section> {
+  const targets = await getSalesTargetsByPerson(year, currency, buId, salespersonId);
   const achieved = new Map<number, number>();
   let unassigned = 0;
   for (const r of rows) {

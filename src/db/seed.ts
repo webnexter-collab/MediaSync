@@ -217,7 +217,7 @@ async function main() {
     .values([
       { companyId: 1, email: "admin@mindsetmedia.ae", name: "Administrator", passwordHash: hash("admin123"), role: "admin" },
       { companyId: 1, email: "sales@mindsetmedia.ae", name: "Sales User", passwordHash: hash("sales123"), role: "sales" },
-      { companyId: 1, email: "shakeel@mindsetmedia.ae", name: "Shakeel Shaikh", passwordHash: hash("shakeel123"), role: "salesperson" },
+      { companyId: 1, email: "shakeel@mindsetmedia.ae", name: "Shakeel Shaikh", passwordHash: hash("shakeel123"), role: "sales" },
       { companyId: 1, email: "demo@mindsetmedia.ae", name: "Demo User", passwordHash: hash("demo123"), role: "demo" },
     ])
     .onConflictDoNothing();

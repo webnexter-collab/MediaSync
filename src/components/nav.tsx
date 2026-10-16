@@ -15,13 +15,16 @@ import type { Role } from "@/lib/session";
 type Item = { href: string; label: string; icon: LucideIcon; financeOnly?: boolean };
 type Group = { title: string; items: Item[]; adminOnly?: boolean };
 
-// Minimal menu for the restricted salesperson group (own data only).
+// Minimal menu for the restricted Sales (salesperson) group (own data only).
 const salespersonGroups: Group[] = [
   { title: "Overview", items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }] },
   { title: "Sales", items: [
     { href: "/booking-orders", label: "Booking Orders", icon: ClipboardList },
     { href: "/proforma-invoices", label: "Proforma Invoices", icon: FileText },
     { href: "/sales-targets", label: "My Targets", icon: Target },
+  ]},
+  { title: "Reports", items: [
+    { href: "/reports/revenue-sales", label: "Target vs Sales", icon: BarChart3 },
   ]},
 ];
 
@@ -78,7 +81,7 @@ const groups: Group[] = [
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrator", user: "User", demo: "Demo user",
-  accountant: "Accountant", sales: "Sales", salesperson: "Salesperson", viewer: "Viewer",
+  accountant: "Accounts", sales: "Sales", salesperson: "Sales", viewer: "Viewer",
 };
 
 export function Nav({
@@ -94,7 +97,8 @@ export function Nav({
 }) {
   const pathname = usePathname();
   const canFinance = role === "admin" || role === "accountant";
-  const source = role === "salesperson" ? salespersonGroups : groups;
+  const restrictedSales = role === "sales" || role === "salesperson";
+  const source = restrictedSales ? salespersonGroups : groups;
   const visible = source
     .filter((g) => !g.adminOnly || role === "admin")
     .map((g) => ({ ...g, items: g.items.filter((it) => !it.financeOnly || canFinance) }))

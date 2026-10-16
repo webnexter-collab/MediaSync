@@ -15,6 +15,7 @@ export type ReportFilters = {
   year?: number | null;
   month?: number | null;
   currency?: string; // reporting currency (default USD)
+  salespersonId?: number | null; // scope to one salesperson (Sales role)
 };
 
 export type BookingRow = {
@@ -84,6 +85,7 @@ export async function fetchApprovedBookings(filters: ReportFilters): Promise<{
     inArray(bookingOrders.status, [...REVENUE_STATUSES]),
   ];
   if (filters.buId) conds.push(eq(bookingOrders.businessUnitId, filters.buId));
+  if (filters.salespersonId) conds.push(eq(bookingOrders.salespersonId, filters.salespersonId));
   if (filters.year) conds.push(sql`extract(year from coalesce(${bookingOrders.receiptDate}, ${bookingOrders.issueDate})) = ${filters.year}`);
   if (filters.month) conds.push(sql`extract(month from coalesce(${bookingOrders.receiptDate}, ${bookingOrders.issueDate})) = ${filters.month}`);
 
@@ -188,6 +190,7 @@ export async function getSalesTargetsByPerson(
   year: number,
   currency: string,
   buId?: number | null,
+  onlySalespersonId?: number | null,
 ): Promise<Map<number, { name: string; monthly: number[]; annual: number }>> {
   const fx = await loadFxToAed();
   const spRows = await db
@@ -203,6 +206,7 @@ export async function getSalesTargetsByPerson(
   const out = new Map<number, { name: string; monthly: number[]; annual: number }>();
   for (const sp of spRows) {
     if (buId && sp.buId !== buId) continue;
+    if (onlySalespersonId && sp.id !== onlySalespersonId) continue;
     out.set(sp.id, { name: sp.name, monthly: Array(12).fill(0), annual: 0 });
   }
   for (const t of tRows) {

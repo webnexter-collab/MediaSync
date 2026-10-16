@@ -5,7 +5,7 @@ import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { saveSalesTargets } from "@/actions/masters";
 import { formatFils, toAed } from "@/lib/money";
 import { getSession } from "@/lib/auth";
-import { isSalesperson } from "@/lib/session";
+import { isSalesperson, canManageTargets } from "@/lib/session";
 import { salespersonIdForEmail } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
@@ -21,14 +21,15 @@ export default async function SalesTargetsPage({ searchParams }: { searchParams:
   const years = [year - 1, year, year + 1];
 
   const session = await getSession();
-  const readOnly = isSalesperson(session?.role);
-  const ownId = readOnly ? await salespersonIdForEmail(session?.email) : null;
+  const scoped = isSalesperson(session?.role); // Sales see only their own row
+  const readOnly = !canManageTargets(session?.role); // only Admin/Accounts can edit
+  const ownId = scoped ? await salespersonIdForEmail(session?.email) : null;
 
   let sales: (typeof salespeople.$inferSelect & { buName: string | null })[] = [];
   let targets: (typeof salesTargets.$inferSelect)[] = [];
   let dbError = false;
   try {
-    const whereSales = readOnly
+    const whereSales = scoped
       ? and(eq(salespeople.companyId, COMPANY_ID), eq(salespeople.isActive, true), eq(salespeople.id, ownId ?? -1))
       : and(eq(salespeople.companyId, COMPANY_ID), eq(salespeople.isActive, true));
     [sales, targets] = await Promise.all([

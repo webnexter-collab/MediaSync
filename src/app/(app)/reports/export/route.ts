@@ -1,4 +1,6 @@
 import { getSession } from "@/lib/auth";
+import { isSalesperson } from "@/lib/session";
+import { salespersonIdForEmail } from "@/lib/scope";
 import { buildReportDataset, type ReportParams } from "@/lib/report-datasets";
 import { renderReportPdf } from "@/components/report-pdf";
 import { buildReportWorkbook } from "@/lib/report-xlsx";
@@ -22,6 +24,12 @@ export async function GET(req: Request) {
     bu: g("bu"), year: g("year"), month: g("month"), currency: g("currency"),
     status: g("status"), q: g("q"), dim: g("dim"), measure: g("measure"),
   };
+
+  // A Sales (salesperson) user may only export their own target-vs-sales report.
+  if (isSalesperson(session.role)) {
+    params.report = "sales";
+    params.salespersonId = await salespersonIdForEmail(session.email);
+  }
 
   let data;
   try {
