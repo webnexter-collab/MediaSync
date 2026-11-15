@@ -9,20 +9,20 @@ export default async function NewBookingOrder() {
   const opts = await getBookingOrderFormOptions();
   return (
     <div>
-      <PageHeader title="New Booking Order" subtitle="Book media with a publisher on behalf of a client." />
+      <PageHeader title="New Booking Order" subtitle="Book an asset for a client. The asset decides the media and units you can pick." />
       <Card>
         <div className="px-6 py-6">
           <BookingOrderForm
             action={createBookingOrder}
-            vendors={opts.vendors}
             accounts={opts.accounts}
             currencies={opts.currencies}
-            channels={opts.channels}
+            assets={opts.assets}
             rateItems={opts.rateItems}
-            uoms={opts.uoms}
+            uomOptions={opts.uomOptions}
             businessUnits={opts.businessUnits}
             salespeople={opts.salespeople}
             industries={opts.industries}
+            categories={opts.categories}
             submitLabel="Create booking order"
           />
         </div>

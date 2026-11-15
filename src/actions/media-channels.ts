@@ -17,6 +17,8 @@ function parse(formData: FormData) {
     name: formData.get("name"),
     code: formData.get("code"),
     vendorId: formData.get("vendorId"),
+    businessUnitId: formData.get("businessUnitId"),
+    allowedMedia: formData.get("allowedMedia"),
     notes: formData.get("notes"),
     isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
   });
@@ -34,13 +36,15 @@ export async function createMediaChannel(_prev: FormState, formData: FormData): 
       name: d.name,
       code: d.code,
       vendorId: d.vendorId,
+      businessUnitId: d.businessUnitId,
+      allowedMedia: JSON.stringify(d.allowedMedia.length ? [...new Set([d.mediaType, ...d.allowedMedia])] : [d.mediaType]),
       notes: d.notes,
       isActive: d.isActive,
     });
   } catch (e) {
     if (isUniqueViolation(e, "channel_code_uq"))
       return { ok: false, errors: { code: ["This code is already in use — pick another."] } };
-    return { ok: false, message: `Could not save channel: ${describeDbError(e).message}` };
+    return { ok: false, message: `Could not save asset: ${describeDbError(e).message}` };
   }
   revalidatePath("/media-channels");
   redirect("/media-channels");
@@ -63,6 +67,8 @@ export async function updateMediaChannel(
         name: d.name,
         code: d.code,
         vendorId: d.vendorId,
+        businessUnitId: d.businessUnitId,
+        allowedMedia: JSON.stringify(d.allowedMedia.length ? [...new Set([d.mediaType, ...d.allowedMedia])] : [d.mediaType]),
         notes: d.notes,
         isActive: d.isActive,
       })
@@ -70,7 +76,7 @@ export async function updateMediaChannel(
   } catch (e) {
     if (isUniqueViolation(e, "channel_code_uq"))
       return { ok: false, errors: { code: ["This code is already in use — pick another."] } };
-    return { ok: false, message: `Could not update channel: ${describeDbError(e).message}` };
+    return { ok: false, message: `Could not update asset: ${describeDbError(e).message}` };
   }
   revalidatePath("/media-channels");
   redirect("/media-channels");

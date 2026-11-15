@@ -77,11 +77,10 @@ function Table({ section }: { section: Section }) {
 }
 
 function ReportDoc({ data }: { data: ReportDataset }) {
-  const wide = data.sections.some((sec) => sec.columns.length > 6);
   const today = new Date().toISOString().slice(0, 10);
   return (
     <Document title={`${data.title} — ${today}`}>
-      <Page size="A4" orientation={wide ? "landscape" : "portrait"} style={s.page}>
+      <Page size="A4" orientation="landscape" style={s.page}>
         <View style={s.top} fixed>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Image style={s.logo} src={MINDSET_LOGO_DATA_URI} />

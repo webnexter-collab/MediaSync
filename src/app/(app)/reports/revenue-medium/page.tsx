@@ -20,16 +20,16 @@ export default async function RevenueByMediumReport({ searchParams }: { searchPa
 
   return (
     <div>
-      <PageHeader title="Revenue by Station / Medium" subtitle="Net revenue by the media / publisher booked (The National, Sky News Arabia, stations, sites…)." />
+      <PageHeader title="Revenue by Asset" subtitle="Net revenue by the asset booked (Sky News Arabia TV, The National Digital, …)." />
       <ReportTabs active="/reports/revenue-medium" query={query} />
       <ReportFilters basePath="/reports/revenue-medium" units={units} bu={sp.bu} year={String(year)} month={sp.month} currency={currency} years={years} showMonth />
       <ReportExportButtons reportKey="medium" query={query} />
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <KpiCard label={`Total revenue · ${currency}`} value={formatFils(total, { currency })} sub={`${rows.length} bookings`} />
-        <KpiCard label="Media / stations" value={String(ranked.length)} />
-        <KpiCard label="Top medium" value={ranked[0]?.label ?? "—"} sub={ranked[0] ? formatFils(ranked[0].value, { currency }) : undefined} />
+        <KpiCard label="Assets" value={String(ranked.length)} />
+        <KpiCard label="Top asset" value={ranked[0]?.label ?? "—"} sub={ranked[0] ? formatFils(ranked[0].value, { currency }) : undefined} />
       </div>
-      <Card><RankTable columns={["Station / Medium"]} rows={ranked} currency={currency} /></Card>
+      <Card><RankTable columns={["Asset"]} rows={ranked} currency={currency} /></Card>
     </div>
   );
 }

@@ -2,22 +2,14 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { getSession } from "@/lib/auth";
 import { bookingOrders, bookingOrderLines, companies } from "@/db/schema";
+import { parseSchedule } from "@/lib/schedule";
 import { renderBookingOrderPdf, type BookingOrderPdfData } from "@/components/booking-order-pdf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const COMPANY_ID = 1;
-const MEDIA_LABEL: Record<string, string> = { print: "Print", digital: "Digital", radio: "Radio", tv: "TV", website: "Website" };
-
-function parseDays(json: string | null): number[] {
-  try {
-    const a = JSON.parse(json ?? "[]");
-    return Array.isArray(a) ? a.filter((n): n is number => typeof n === "number") : [];
-  } catch {
-    return [];
-  }
-}
+const MEDIA_LABEL: Record<string, string> = { print: "Print", digital: "Digital", radio: "Radio", tv: "TV", website: "Website", outdoor: "Outdoor" };
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -55,7 +47,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       platform: l.platform, particulars: l.particulars, brandingDetails: l.brandingDetails,
       period: l.period, quantity: String(Number(l.quantity)), uom: l.uom,
       unitGrossFils: l.unitGrossFils, discountPct: String(l.discountPct), lineNetFils: l.lineNetFils,
-      days: parseDays(l.annexure),
+      mediaType: l.mediaType,
+      schedule: parseSchedule(l.annexure, l.mediaType),
     })),
   };
 

@@ -5,7 +5,7 @@ import { mediaChannels } from "@/db/schema";
 import { PageHeader, Card } from "@/components/ui";
 import { MasterForm } from "@/components/master-form";
 import { mediaChannelFields } from "@/lib/form-fields";
-import { getVendorOptions } from "@/lib/crm-options";
+import { getVendorOptions, getAccountFormOptions } from "@/lib/crm-options";
 import { updateMediaChannel } from "@/actions/media-channels";
 
 export const dynamic = "force-dynamic";
@@ -24,18 +24,18 @@ export default async function EditMediaChannel({ params }: { params: Promise<{ i
     .limit(1);
   if (!row) notFound();
 
-  const vendors = await getVendorOptions();
+  const [vendors, { businessUnits }] = await Promise.all([getVendorOptions(), getAccountFormOptions()]);
   const action = updateMediaChannel.bind(null, channelId);
 
   return (
     <div>
-      <PageHeader title={row.name} subtitle={`Channel · ${row.code}`} />
+      <PageHeader title={row.name} subtitle={`Asset · ${row.code}`} />
       <Card>
         <div className="px-6 py-6">
           <MasterForm
             action={action}
-            fields={mediaChannelFields(row, vendors)}
-            submitLabel="Update channel"
+            fields={mediaChannelFields(row, vendors, businessUnits)}
+            submitLabel="Update asset"
             cancelHref="/media-channels"
           />
         </div>

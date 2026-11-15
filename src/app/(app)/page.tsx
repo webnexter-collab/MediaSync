@@ -27,6 +27,7 @@ type Metrics = {
   recent: { type: string; number: string; party: string; total: number; status: string; date: string; href: string }[];
   bo: { total: number; draft: number; confirmed: number; invoiced: number };
   recentBos: { number: string; party: string; total: number; currency: string; status: string; date: string; id: number }[];
+  pro: { total: number; draft: number; sent: number; converted: number };
 };
 
 async function loadMetrics(opts: ScopeOpts): Promise<Metrics | null> {
@@ -106,6 +107,20 @@ async function loadMetrics(opts: ScopeOpts): Promise<Metrics | null> {
       .orderBy(desc(bookingOrders.id))
       .limit(6);
 
+    // Proforma invoices (scoped to the salesperson's own bookings when restricted).
+    const proRows = await db
+      .select({ status: documents.status, spId: bookingOrders.salespersonId })
+      .from(documents)
+      .leftJoin(bookingOrders, and(eq(bookingOrders.companyId, COMPANY_ID), eq(bookingOrders.number, documents.reference)))
+      .where(and(eq(documents.companyId, COMPANY_ID), eq(documents.type, "proforma_invoice")));
+    const myPro = salespersonId ? proRows.filter((r) => r.spId === salespersonId) : proRows;
+    const pro = {
+      total: myPro.filter((r) => r.status !== "cancelled").length,
+      draft: myPro.filter((r) => r.status === "draft").length,
+      sent: myPro.filter((r) => r.status === "sent").length,
+      converted: myPro.filter((r) => r.status === "converted").length,
+    };
+
     const overdue = (["b1_30", "b31_60", "b61_90", "b90"] as const).reduce((s, b) => s + recv.totals[b], 0);
     const aging = BUCKET_KEYS.map((b) => ({ bucket: BUCKET_LABELS[b].replace(" days", ""), Receivables: toAed(recv.totals[b]), Payables: toAed(pay.totals[b]) }));
 
@@ -120,6 +135,7 @@ async function loadMetrics(opts: ScopeOpts): Promise<Metrics | null> {
         total: d.total, status: d.status, date: d.date, href: `${hrefBase[d.type]}/${d.id}`,
       })),
       bo: { total: boTotal, draft: boDraft, confirmed: boConfirmed, invoiced: boInvoiced },
+      pro,
       recentBos: recentBos.map((b) => ({ number: b.number, party: b.party ?? "—", total: b.total, currency: b.currency, status: b.status, date: b.date, id: b.id })),
     };
   } catch {
@@ -159,6 +175,13 @@ export default async function Dashboard() {
     { label: "Invoiced", value: String(m.bo.invoiced), sub: "billed", icon: FileCheck, accent: "from-[#c2894e] to-[#a06c34]", href: "/booking-orders" },
   ];
 
+  const proStats = [
+    { label: "Proforma Invoices", value: String(m.pro.total), sub: "active", icon: FileText, accent: "from-ink to-ink-2" },
+    { label: "Draft", value: String(m.pro.draft), sub: "not yet sent", icon: FileText, accent: "from-[#6b7280] to-[#4b5563]" },
+    { label: "Sent", value: String(m.pro.sent), sub: "awaiting payment", icon: ArrowUpRight, accent: "from-teal to-teal-ink" },
+    { label: "Invoiced", value: String(m.pro.converted), sub: "tax invoice issued", icon: FileCheck, accent: "from-[#c2894e] to-[#a06c34]" },
+  ];
+
   return (
     <div>
       <PageHeader title="Dashboard" subtitle="Your bookings, sales and cash, at a glance." />
@@ -170,6 +193,25 @@ export default async function Dashboard() {
           const Icon = s.icon;
           return (
             <Link key={s.label} href={s.href} className="group relative overflow-hidden rounded-2xl border border-line bg-surface p-5 transition-shadow hover:shadow-lg hover:shadow-ink/5">
+              <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.accent}`} />
+              <div className="flex items-start justify-between">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted">{s.label}</div>
+                <div className={`grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br ${s.accent} text-white`}><Icon size={16} /></div>
+              </div>
+              <div className="mt-3 font-display text-2xl font-semibold text-ink tnum">{s.value}</div>
+              <div className="mt-1 text-xs text-muted">{s.sub}</div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Proforma invoice status */}
+      <div className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-muted">Proforma Invoices</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {proStats.map((s) => {
+          const Icon = s.icon;
+          return (
+            <Link key={s.label} href="/proforma-invoices" className="group relative overflow-hidden rounded-2xl border border-line bg-surface p-5 transition-shadow hover:shadow-lg hover:shadow-ink/5">
               <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.accent}`} />
               <div className="flex items-start justify-between">
                 <div className="text-xs font-medium uppercase tracking-wide text-muted">{s.label}</div>
@@ -275,10 +317,11 @@ export default async function Dashboard() {
             {(salesperson
               ? [
                   { href: "/booking-orders/new", label: "New booking order", icon: ClipboardList },
-                  { href: "/proforma-invoices/new", label: "New proforma", icon: FileText },
+                  { href: "/proforma-invoices/new", label: "New proforma invoice", icon: FileCheck },
                 ]
               : [
               { href: "/booking-orders/new", label: "New booking order", icon: ClipboardList },
+              { href: "/proforma-invoices/new", label: "New proforma invoice", icon: FileCheck },
               { href: "/rate-cards/new", label: "New rate card", icon: Tags },
               { href: "/invoices/new", label: "New invoice", icon: FileText },
               { href: "/purchase-orders/new", label: "New purchase order", icon: ShoppingCart },

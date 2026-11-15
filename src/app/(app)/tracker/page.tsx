@@ -36,11 +36,11 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
   const years = [now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
 
   // Reporting month = receipt date when present, else issue date.
-  const periodExpr = sql`coalesce(${bookingOrders.receiptDate}, ${bookingOrders.issueDate})`;
+  const periodExpr = sql`coalesce(${bookingOrders.revenueMonth}, ${bookingOrders.receiptDate}, ${bookingOrders.issueDate})`;
 
   let units: { id: number; name: string }[] = [];
   let rows: {
-    id: number; number: string; issueDate: string; receiptDate: string | null; status: string;
+    id: number; number: string; issueDate: string; receiptDate: string | null; revenueMonth: string | null; clientBoRef: string | null; status: string;
     toName: string | null; agency: string | null; client: string | null; campaign: string | null;
     medium: string | null; currency: string; totalNetFils: number; vatFils: number; grandTotalFils: number;
     buName: string | null; salesName: string | null; industryName: string | null;
@@ -58,12 +58,12 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
     if (statusParam !== "all") conds.push(eq(bookingOrders.status, statusParam as typeof bookingOrders.$inferSelect.status));
     if (year) conds.push(sql`extract(year from ${periodExpr}) = ${year}`);
     if (month) conds.push(sql`extract(month from ${periodExpr}) = ${month}`);
-    if (q) conds.push(or(ilike(bookingOrders.number, `%${q}%`), ilike(bookingOrders.toName, `%${q}%`), ilike(bookingOrders.campaign, `%${q}%`), ilike(bookingOrders.agency, `%${q}%`), ilike(bookingOrders.client, `%${q}%`)));
+    if (q) conds.push(or(ilike(bookingOrders.number, `%${q}%`), ilike(bookingOrders.clientBoRef, `%${q}%`), ilike(bookingOrders.toName, `%${q}%`), ilike(bookingOrders.campaign, `%${q}%`), ilike(bookingOrders.agency, `%${q}%`), ilike(bookingOrders.client, `%${q}%`)));
 
     rows = await db
       .select({
         id: bookingOrders.id, number: bookingOrders.number, issueDate: bookingOrders.issueDate,
-        receiptDate: bookingOrders.receiptDate, status: bookingOrders.status,
+        receiptDate: bookingOrders.receiptDate, revenueMonth: bookingOrders.revenueMonth, clientBoRef: bookingOrders.clientBoRef, status: bookingOrders.status,
         toName: bookingOrders.toName, agency: bookingOrders.agency, client: bookingOrders.client,
         campaign: bookingOrders.campaign, medium: bookingOrders.medium, currency: bookingOrders.currency,
         totalNetFils: bookingOrders.totalNetFils, vatFils: bookingOrders.vatFils, grandTotalFils: bookingOrders.grandTotalFils,
@@ -126,7 +126,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="flex-1 min-w-[180px]">
           <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted">Search</label>
-          <input name="q" defaultValue={q} placeholder="BO no, medium, agency, client, campaign…" className={sel + " w-full"} />
+          <input name="q" defaultValue={q} placeholder="BO no, asset, agency, client, campaign…" className={sel + " w-full"} />
         </div>
         <button className="inline-flex h-9 items-center rounded-lg bg-ink px-4 text-sm font-medium text-white hover:bg-ink-2">Apply</button>
         <Link href="/tracker" className="inline-flex h-9 items-center rounded-lg border border-line-2 bg-surface px-3 text-sm font-medium hover:bg-bg">Reset</Link>
@@ -161,13 +161,14 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
           <EmptyState title="No bookings match" hint="Adjust the filters, or create a booking order." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ minWidth: 1100 }}>
+            <table className="w-full text-sm" style={{ minWidth: 1250 }}>
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
                   <th className="px-3 py-3 font-medium">BO No.</th>
-                  <th className="px-3 py-3 font-medium">Period</th>
+                  <th className="px-3 py-3 font-medium">Month</th>
+                  <th className="px-3 py-3 font-medium">Client BO #</th>
                   <th className="px-3 py-3 font-medium">Unit</th>
-                  <th className="px-3 py-3 font-medium">Medium</th>
+                  <th className="px-3 py-3 font-medium">Asset</th>
                   <th className="px-3 py-3 font-medium">Agency</th>
                   <th className="px-3 py-3 font-medium">Client</th>
                   <th className="px-3 py-3 font-medium">Salesperson</th>
@@ -181,7 +182,8 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
                 {rows.map((r) => (
                   <tr key={r.id} className="border-b border-line last:border-0 hover:bg-bg">
                     <td className="px-3 py-2.5"><Link href={`/booking-orders/${r.id}`} className="font-medium text-ink hover:text-teal-ink">{r.number}</Link></td>
-                    <td className="px-3 py-2.5 tnum text-muted">{(r.receiptDate ?? r.issueDate)}</td>
+                    <td className="px-3 py-2.5 tnum text-muted">{(r.revenueMonth ?? r.receiptDate ?? r.issueDate).slice(0, 7)}</td>
+                    <td className="px-3 py-2.5 tnum text-muted">{r.clientBoRef ?? "—"}</td>
                     <td className="px-3 py-2.5 text-muted">{r.buName ?? "—"}</td>
                     <td className="px-3 py-2.5">{r.toName ?? "—"}</td>
                     <td className="px-3 py-2.5 text-muted">{r.agency ?? "—"}</td>

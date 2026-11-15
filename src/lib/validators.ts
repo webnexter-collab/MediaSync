@@ -250,6 +250,21 @@ export const mediaChannelSchema = z.object({
     (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
     z.number().int().positive().nullable(),
   ),
+  businessUnitId: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().int().positive().nullable(),
+  ),
+  // Comma-separated media types the asset can be booked on, e.g. "tv, digital".
+  allowedMedia: z
+    .string()
+    .trim()
+    .nullish()
+    .transform((v) =>
+      (v ?? "")
+        .split(",")
+        .map((x) => x.trim().toLowerCase())
+        .filter((x): x is (typeof mediaTypeValues)[number] => (mediaTypeValues as readonly string[]).includes(x)),
+    ),
   notes: optionalStr,
   isActive: z.coerce.boolean().default(true),
 });
@@ -298,7 +313,19 @@ export const bookingOrderLineSchema = z.object({
   unitGross: z.coerce.number().min(0).default(0), // major units of the BO currency
   discountPct: z.coerce.number().min(0).max(100).default(0),
   unitCost: z.coerce.number().min(0).default(0), // buy-side cost per unit (internal)
-  days: z.array(z.coerce.number().int().min(1).max(31)).default([]), // annexure schedule
+  // Annexure schedule (shape depends on media type — see lib/schedule.ts)
+  schedule: z
+    .object({
+      gran: z.enum(["daily", "monthly", "yearly", "dates"]),
+      month: z.string().optional(),
+      year: z.coerce.number().int().optional(),
+      cells: z.record(z.string(), z.coerce.number().min(0)).optional(),
+      dates: z.array(z.string()).optional(),
+      segment: z.string().optional(),
+      position: z.string().optional(),
+      duration: z.string().optional(),
+    })
+    .nullish(),
 });
 
 const optionalDate = z
@@ -325,6 +352,20 @@ export const bookingOrderSchema = z.object({
   agencyAccountId: nullableId,
   clientAccountId: nullableId,
   receiptDate: optionalDate,
+  assetId: nullableId,
+  categoryId: nullableId,
+  region: optionalStr,
+  salesOffice: optionalStr,
+  clientBoRef: optionalStr,
+  // "YYYY-MM" from the month picker → stored as the first day of that month.
+  revenueMonth: z
+    .string()
+    .trim()
+    .nullish()
+    .transform((v) => (v ? (v.length === 7 ? `${v}-01` : v) : undefined))
+    .refine((v) => v === undefined || /^\d{4}-\d{2}-\d{2}$/.test(v), "Invalid month"),
+  startDate: optionalDate,
+  endDate: optionalDate,
   currency: z.string().trim().min(3).max(3).default("AED"),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   paymentTerms: optionalStr,

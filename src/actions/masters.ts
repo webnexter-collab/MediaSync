@@ -3,7 +3,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { businessUnits, agencyGroups, salespeople, industries, salesTargets } from "@/db/schema";
+import { businessUnits, agencyGroups, salespeople, industries, salesTargets, industryCategories } from "@/db/schema";
 import { assertCanWrite } from "@/lib/auth";
 import { canManageTargets } from "@/lib/session";
 import { toFils } from "@/lib/money";
@@ -193,4 +193,31 @@ export async function saveSalesTargets(
       });
   }
   revalidatePath("/sales-targets");
+}
+
+/* --------------------------- Industry Categories -------------------------- */
+
+export async function createCategory(industryId: number, formData: FormData): Promise<void> {
+  await assertCanWrite();
+  const name = str(formData, "name");
+  if (!name) return;
+  await db.insert(industryCategories).values({ companyId: COMPANY_ID, industryId, name }).onConflictDoNothing();
+  revalidatePath("/industries");
+}
+
+export async function updateCategory(id: number, formData: FormData): Promise<void> {
+  await assertCanWrite();
+  const name = str(formData, "name");
+  if (!name) return;
+  await db
+    .update(industryCategories)
+    .set({ name })
+    .where(and(eq(industryCategories.id, id), eq(industryCategories.companyId, COMPANY_ID)));
+  revalidatePath("/industries");
+}
+
+export async function deleteCategory(id: number): Promise<void> {
+  await assertCanWrite();
+  await db.delete(industryCategories).where(and(eq(industryCategories.id, id), eq(industryCategories.companyId, COMPANY_ID)));
+  revalidatePath("/industries");
 }

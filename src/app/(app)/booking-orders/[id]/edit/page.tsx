@@ -3,9 +3,10 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { bookingOrders, bookingOrderLines } from "@/db/schema";
 import { PageHeader, Card } from "@/components/ui";
-import { BookingOrderForm } from "@/components/booking-order-form";
+import { BookingOrderForm, type BoDefaults } from "@/components/booking-order-form";
 import { getBookingOrderFormOptions } from "@/lib/crm-options";
 import { updateBookingOrder } from "@/actions/booking-orders";
+import { parseSchedule } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,9 @@ export default async function EditBookingOrder({ params }: { params: Promise<{ i
   ]);
 
   const action = updateBookingOrder.bind(null, boId);
-  const defaults = {
+  const defaults: BoDefaults = {
+    assetId: bo.assetId,
     toName: bo.toName ?? "",
-    publisherVendorId: bo.publisherVendorId,
     agency: bo.agency ?? "",
     client: bo.client ?? "",
     agencyAccountId: bo.agencyAccountId,
@@ -35,11 +36,18 @@ export default async function EditBookingOrder({ params }: { params: Promise<{ i
     businessUnitId: bo.businessUnitId,
     salespersonId: bo.salespersonId,
     industryId: bo.industryId,
+    categoryId: bo.categoryId,
     campaign: bo.campaign ?? "",
     medium: bo.medium ?? "",
     currency: bo.currency,
     issueDate: bo.issueDate,
     receiptDate: bo.receiptDate ?? "",
+    revenueMonth: (bo.revenueMonth ?? bo.receiptDate ?? bo.issueDate).slice(0, 7),
+    startDate: bo.startDate ?? "",
+    endDate: bo.endDate ?? "",
+    region: bo.region ?? "",
+    salesOffice: bo.salesOffice ?? "",
+    clientBoRef: bo.clientBoRef ?? "",
     paymentTerms: bo.paymentTerms ?? "",
     agencyDiscountPct: String(Number(bo.agencyDiscountPct)),
     vatRatePct: String(Number(bo.vatRatePct)),
@@ -56,7 +64,7 @@ export default async function EditBookingOrder({ params }: { params: Promise<{ i
       unitGross: String((l.unitGrossFils ?? 0) / 100),
       discountPct: String(Number(l.discountPct)),
       unitCost: String((l.unitCostFils ?? 0) / 100),
-      days: (() => { try { const a = JSON.parse(l.annexure ?? "[]"); return Array.isArray(a) ? a.filter((n: unknown) => typeof n === "number") : []; } catch { return []; } })(),
+      schedule: parseSchedule(l.annexure, l.mediaType),
     })),
   };
 
@@ -67,15 +75,15 @@ export default async function EditBookingOrder({ params }: { params: Promise<{ i
         <div className="px-6 py-6">
           <BookingOrderForm
             action={action}
-            vendors={opts.vendors}
             accounts={opts.accounts}
             currencies={opts.currencies}
-            channels={opts.channels}
+            assets={opts.assets}
             rateItems={opts.rateItems}
-            uoms={opts.uoms}
+            uomOptions={opts.uomOptions}
             businessUnits={opts.businessUnits}
             salespeople={opts.salespeople}
             industries={opts.industries}
+            categories={opts.categories}
             defaults={defaults}
             submitLabel="Update booking order"
             cancelHref={`/booking-orders/${bo.id}`}

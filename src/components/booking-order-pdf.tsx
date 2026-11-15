@@ -3,6 +3,7 @@ import {
 } from "@react-pdf/renderer";
 import { formatFils } from "@/lib/money";
 import { MINDSET_LOGO_DATA_URI } from "@/assets/mindset-logo";
+import { type LineSchedule, scheduleColumns, scheduleTotal, scheduleIsEmpty, specLabels, GRAN_LABEL, MONTH_SHORT } from "@/lib/schedule";
 import { BOOKING_ORDER_TERMS, BOOKING_ORDER_TERMS_INTRO } from "@/content/booking-order-terms";
 
 const INK = "#111112";
@@ -25,11 +26,10 @@ export type BookingOrderPdfData = {
     mediaLabel: string; platform?: string | null; particulars?: string | null;
     brandingDetails?: string | null; period?: string | null;
     quantity: string; uom?: string | null; unitGrossFils: number;
-    discountPct: string; lineNetFils: number; days: number[];
+    discountPct: string; lineNetFils: number; mediaType: string; schedule: LineSchedule;
   }[];
 };
 
-const DAY_NUMS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const s = StyleSheet.create({
   page: { fontSize: 9, color: SOFT, fontFamily: "Helvetica", paddingBottom: 44 },
@@ -106,7 +106,8 @@ function Doc({ data }: { data: BookingOrderPdfData }) {
   const addr = [company.legalName ?? company.name, company.address, company.trn ? `TRN: ${company.trn}` : null]
     .filter(Boolean);
   const partyRows: [string, string | null | undefined][] = [
-    ["Medium", bo.toName],
+    ["Asset", bo.toName],
+    ["Media", bo.medium],
     ["Agency", bo.agency],
     ["Client", bo.client],
     ["Campaign", bo.campaign],
@@ -213,8 +214,9 @@ function Doc({ data }: { data: BookingOrderPdfData }) {
         </View>
       </Page>
 
-      {/* PAGE 2 — ANNEXURE (day 1–31 schedule) */}
-      <Page size="A4" style={s.page}>
+      {/* PAGE 2 — ANNEXURE (schedule; layout follows each line's media) */}
+      {lines.some((l) => !scheduleIsEmpty(l.schedule)) && (
+      <Page size="A4" orientation="landscape" style={s.page}>
         <View style={s.anxHead}>
           <Image style={s.logo} src={MINDSET_LOGO_DATA_URI} />
           <View>
@@ -224,32 +226,49 @@ function Doc({ data }: { data: BookingOrderPdfData }) {
           </View>
         </View>
         <View style={s.anxWrap}>
-          <View style={s.anxHeadRow}>
-            <Text style={s.anxSl}>#</Text>
-            <Text style={s.anxPart}>Particulars</Text>
-            {DAY_NUMS.map((d) => <Text key={d} style={s.anxDay}>{d}</Text>)}
-            <Text style={s.anxTot}>Tot</Text>
-          </View>
-          {lines.map((l, i) => (
-            <View key={i} style={s.anxRow} wrap={false}>
-              <Text style={s.anxSl}>{String(i + 1).padStart(2, "0")}</Text>
-              <Text style={s.anxPart}>{l.particulars || l.platform || "—"}</Text>
-              {DAY_NUMS.map((d) => {
-                const on = l.days.includes(d);
-                return <Text key={d} style={on ? [s.anxDay, s.anxDayOn] : s.anxDay}>{on ? "X" : ""}</Text>;
-              })}
-              <Text style={s.anxTot}>{l.days.length}</Text>
-            </View>
-          ))}
-        </View>
-        <View style={{ paddingHorizontal: 34, paddingTop: 12 }}>
-          <Text style={s.small}>Marked cells (X) indicate the days on which each line runs during the campaign month.</Text>
+          {lines.map((l, i) => {
+            const sch = l.schedule;
+            if (scheduleIsEmpty(sch)) return null;
+            const cols = scheduleColumns(sch);
+            const lab = specLabels(l.mediaType);
+            const spec = [sch.segment && `${lab.segment}: ${sch.segment}`, sch.position && `${lab.position}: ${sch.position}`, sch.duration && `${lab.duration}: ${sch.duration}`].filter(Boolean).join("   ·   ");
+            let period = "";
+            if (sch.gran === "daily" && sch.month) { const [y, m] = sch.month.split("-").map(Number); period = `${MONTH_SHORT[m - 1]} ${y}`; }
+            else if (sch.gran === "monthly") period = String(sch.year ?? "");
+            return (
+              <View key={i} style={{ marginBottom: 12 }} wrap={false}>
+                <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: INK }}>
+                  {String(i + 1).padStart(2, "0")}  {l.mediaLabel} — {l.particulars || l.platform || "—"}   ({GRAN_LABEL[sch.gran]}{period ? ` · ${period}` : ""})
+                </Text>
+                {spec ? <Text style={[s.small, { marginTop: 2 }]}>{spec}</Text> : null}
+                {sch.gran === "dates" ? (
+                  <Text style={{ fontSize: 8, color: SOFT, marginTop: 4 }}>Dates: {(sch.dates ?? []).filter(Boolean).join(",  ") || "—"}   ·   Total {scheduleTotal(sch)}</Text>
+                ) : (
+                  <View style={{ marginTop: 4, borderWidth: 0.5, borderColor: LINE }}>
+                    <View style={s.anxHeadRow}>
+                      {cols.map((c) => <Text key={c.key} style={[s.anxDay, { flex: 1, width: undefined, fontSize: 6 }]}>{c.sub ? `${c.sub}
+${c.label}` : c.label}</Text>)}
+                      <Text style={s.anxTot}>Tot</Text>
+                    </View>
+                    <View style={{ flexDirection: "row" }}>
+                      {cols.map((c) => {
+                        const v = sch.cells?.[c.key];
+                        return <Text key={c.key} style={v ? [s.anxDay, s.anxDayOn, { flex: 1, width: undefined, fontSize: 6.5 }] : [s.anxDay, { flex: 1, width: undefined, fontSize: 6.5 }]}>{v ? String(v) : " "}</Text>;
+                      })}
+                      <Text style={s.anxTot}>{scheduleTotal(sch)}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
         <View style={s.foot} fixed>
           <Text style={s.small}>{company.legalName ?? company.name}{company.trn ? ` · TRN ${company.trn}` : ""}</Text>
           <Text style={s.small} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
+      )}
 
       {/* PAGE 3 — TERMS & CONDITIONS (single page, two columns) */}
       <Page size="A4" style={s.page}>

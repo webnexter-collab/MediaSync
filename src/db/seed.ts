@@ -1,30 +1,48 @@
+/**
+ * Base seed for a fresh MediaSync install: company, currencies, FX, tax rules,
+ * the three business units, IMI's assets, units of measure and logins.
+ *
+ * Live data (agencies, clients, salespeople, industries/categories, bookings)
+ * is loaded from Mindset's Excel files with:
+ *   npx tsx scripts/import-tracker.ts "<Bookings Tracker.xlsx>" "<Industry & Category.xlsx>" --confirm
+ */
 import "dotenv/config";
 import { and, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "./index";
 import {
-  companies,
-  customers,
-  suppliers,
-  items,
-  bankAccounts,
-  users,
-  currencies,
-  fxRates,
-  taxRules,
-  mediaChannels,
-  businessUnits,
-  agencyGroups,
-  industries,
-  salespeople,
+  companies, suppliers, users, currencies, fxRates, taxRules, mediaChannels, businessUnits, uoms,
 } from "./schema";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
+type MediaType = "print" | "digital" | "radio" | "tv" | "website" | "outdoor";
+
+const ASSETS: { name: string; code: string; mediaType: MediaType; allowed: MediaType[] }[] = [
+  { name: "Sky News Arabia TV", code: "AST-SNA-TV", mediaType: "tv", allowed: ["tv", "digital"] },
+  { name: "Sky News Arabia Radio", code: "AST-SNA-RADIO", mediaType: "radio", allowed: ["radio"] },
+  { name: "CNN Arabic website", code: "AST-CNN-AR", mediaType: "website", allowed: ["website", "digital"] },
+  { name: "The National Newspaper", code: "AST-TN-PRINT", mediaType: "print", allowed: ["print"] },
+  { name: "The National Digital", code: "AST-TN-DIGITAL", mediaType: "digital", allowed: ["digital"] },
+  { name: "The National Luxury Magazine", code: "AST-TN-LUX", mediaType: "print", allowed: ["print"] },
+  { name: "Al Ain News Portal", code: "AST-ALAIN", mediaType: "website", allowed: ["website", "digital"] },
+];
+
+const UOMS: [string, MediaType[] | null][] = [
+  ["Spot", ["tv", "radio"]], ["30 Sec", ["tv", "radio"]], ["15 Sec", ["tv", "radio"]],
+  ["Sponsorship", ["tv", "radio", "digital", "website"]],
+  ["Insertion", ["print"]], ["Full Page", ["print"]], ["Half Page", ["print"]], ["Quarter Page", ["print"]],
+  ["Article", ["print", "digital", "website"]], ["Advertorial", ["print", "digital", "website"]],
+  ["Impressions", ["digital", "website"]], ["CPM", ["digital", "website"]], ["Clicks", ["digital", "website"]],
+  ["Banner", ["digital", "website"]], ["Post", ["digital"]], ["Video", ["digital", "website"]],
+  ["Site", ["outdoor"]], ["Billboard", ["outdoor"]], ["Face", ["outdoor"]],
+  ["Day", null], ["Month", null], ["Package", null],
+];
+
 async function main() {
   console.log("Seeding…");
 
-  // Company 1 (the single active tenant for v1).
+  // Company 1 (the single active tenant).
   await db
     .insert(companies)
     .values({
@@ -43,7 +61,6 @@ async function main() {
     })
     .onConflictDoNothing();
 
-  // Currencies MediaSync transacts in (base = AED).
   await db
     .insert(currencies)
     .values([
@@ -54,161 +71,62 @@ async function main() {
     .onConflictDoNothing();
 
   // Latest FX rates → base (AED). 1 unit of currency = rateToBase AED.
-  await db
-    .insert(fxRates)
-    .values([
+  const [fxExisting] = await db.select({ id: fxRates.id }).from(fxRates).where(eq(fxRates.companyId, 1)).limit(1);
+  if (!fxExisting) {
+    await db.insert(fxRates).values([
       { companyId: 1, currencyCode: "AED", rateToBase: "1", asOfDate: TODAY },
       { companyId: 1, currencyCode: "USD", rateToBase: "3.6725", asOfDate: TODAY },
       { companyId: 1, currencyCode: "EUR", rateToBase: "3.95", asOfDate: TODAY },
-    ])
-    .onConflictDoNothing();
+    ]);
+  }
 
-  // Tax rules (multi-jurisdiction). UAE 5% standard is the default.
-  await db
-    .insert(taxRules)
-    .values([
+  const [taxExisting] = await db.select({ id: taxRules.id }).from(taxRules).where(eq(taxRules.companyId, 1)).limit(1);
+  if (!taxExisting) {
+    await db.insert(taxRules).values([
       { companyId: 1, name: "UAE VAT 5%", country: "AE", category: "standard", ratePct: "5", isDefault: true },
       { companyId: 1, name: "UAE Zero-rated", country: "AE", category: "zero_rated", ratePct: "0" },
       { companyId: 1, name: "UAE Exempt", country: "AE", category: "exempt", ratePct: "0" },
       { companyId: 1, name: "UAE Reverse Charge", country: "AE", category: "reverse_charge", ratePct: "5" },
-      { companyId: 1, name: "US — Out of scope", country: "US", category: "out_of_scope", ratePct: "0" },
-    ])
-    .onConflictDoNothing();
+    ]);
+  }
 
-  // CRM accounts (stored in customers): a direct client, an agency, a buying house.
-  await db
-    .insert(customers)
-    .values([
-      { companyId: 1, code: "ACC-0001", name: "Al Habtoor Retail LLC", accountType: "direct_client", trn: "100111111111113", paymentTermsDays: 30, creditLimitFils: 50_000_00, currency: "AED", city: "Dubai" },
-      { companyId: 1, code: "ACC-0002", name: "Horizon Media Agency", accountType: "agency", agencyCommissionPct: "15", paymentTermsDays: 45, creditLimitFils: 250_000_00, currency: "AED", city: "Dubai" },
-      { companyId: 1, code: "ACC-0003", name: "BlueWave Buying House", accountType: "buying_house", agencyCommissionPct: "12.5", paymentTermsDays: 60, creditLimitFils: 400_000_00, currency: "USD", city: "Abu Dhabi" },
-    ])
-    .onConflictDoNothing();
-
-  // Buy-side vendors: publishers / stations / networks.
-  await db
-    .insert(suppliers)
-    .values([
-      { companyId: 1, code: "VEN-0001", name: "Gulf News (Al Nisr Publishing)", paymentTermsDays: 30, city: "Dubai" },
-      { companyId: 1, code: "VEN-0002", name: "Radio 1 FM Network", paymentTermsDays: 30, city: "Dubai" },
-      { companyId: 1, code: "VEN-0003", name: "Programmatic Exchange DSP", currency: "USD", paymentTermsDays: 15, city: "London" },
-    ])
-    .onConflictDoNothing();
-
-  // Media channels (Print / Digital / Radio) sourced from those vendors.
-  await db
-    .insert(mediaChannels)
-    .values([
-      { companyId: 1, mediaType: "print", name: "Gulf News — Main Edition", code: "PR-GN-MAIN" },
-      { companyId: 1, mediaType: "radio", name: "Radio 1 FM 104.1", code: "RD-R1-1041" },
-      { companyId: 1, mediaType: "digital", name: "Programmatic Display Network", code: "DG-PROG-DISP" },
-    ])
-    .onConflictDoNothing();
-
-  // Business Units — the markets Mindset Media operates (reporting dimension).
+  // Business units directly under Mindset Media. IMI is the UAE unit.
   await db
     .insert(businessUnits)
     .values([
-      { companyId: 1, name: "UAE Media", code: "UAE", country: "United Arab Emirates", defaultCurrency: "USD", sortOrder: 1 },
-      { companyId: 1, name: "Beirut Outdoor", code: "BEI", country: "Lebanon", defaultCurrency: "USD", sortOrder: 2 },
-      { companyId: 1, name: "Iraq TV", code: "IRQ", country: "Iraq", defaultCurrency: "USD", sortOrder: 3 },
+      { companyId: 1, name: "IMI", code: "IMI", country: "United Arab Emirates", defaultCurrency: "AED", sortOrder: 1 },
+      { companyId: 1, name: "Iraq Media", code: "IRQ", country: "Iraq", defaultCurrency: "USD", sortOrder: 2 },
+      { companyId: 1, name: "Beirut Media", code: "BEI", country: "Lebanon", defaultCurrency: "USD", sortOrder: 3 },
     ])
     .onConflictDoNothing();
-
-  // Agency groups (agencies are mapped to these for consolidated reporting).
-  await db
-    .insert(agencyGroups)
-    .values(
-      ["BPG", "BPN", "Dentsu", "Direct", "Fusion", "GROUPM", "Havas", "MCN", "Memac", "Omnicom", "Publicis", "Radix", "SMB", "Times"]
-        .map((name) => ({ companyId: 1, name })),
-    )
-    .onConflictDoNothing();
-
-  // Advertiser industry categories.
-  await db
-    .insert(industries)
-    .values(
-      [
-        "AIRLINES", "AUTOMOTIVE", "BANKING & FINANCE", "EDUCATION", "GOVERNMENT & PUBLIC SERVICES",
-        "HEALTHCARE", "MISCELLANEOUS", "REAL ESTATE & CONSTRUCTION", "RETAIL", "SKIN CARE",
-        "TECHNOLOGY", "TRAVEL, TOURISM, HOSPITALITY & ENTERTAINMENT",
-      ].map((name) => ({ companyId: 1, name })),
-    )
-    .onConflictDoNothing();
-
-  // Resolve business-unit ids by code for the cross-market rollout below.
-  const buRows = await db
-    .select({ id: businessUnits.id, code: businessUnits.code })
+  const [imi] = await db
+    .select({ id: businessUnits.id })
     .from(businessUnits)
-    .where(eq(businessUnits.companyId, 1));
-  const buId: Record<string, number> = Object.fromEntries(buRows.map((b) => [b.code, b.id]));
+    .where(and(eq(businessUnits.companyId, 1), eq(businessUnits.code, "IMI")))
+    .limit(1);
 
-  // Beirut (Outdoor) & Iraq (TV) publishers — starter records; rename in the UI
-  // to the real media owners once confirmed with Mindset.
+  // IMI as the media owner of the UAE assets.
   await db
     .insert(suppliers)
-    .values([
-      { companyId: 1, code: "VEN-BEI-01", name: "Beirut Outdoor Network", businessUnitId: buId.BEI ?? null, currency: "USD", paymentTermsDays: 30, city: "Beirut" },
-      { companyId: 1, code: "VEN-IRQ-01", name: "Mindset TV — Iraq", businessUnitId: buId.IRQ ?? null, currency: "USD", paymentTermsDays: 30, city: "Baghdad" },
-    ])
+    .values({ companyId: 1, code: "VEN-IMI", name: "IMI Media Group", businessUnitId: imi?.id ?? null, currency: "AED", city: "Abu Dhabi" })
     .onConflictDoNothing();
-
-  const venRows = await db
-    .select({ id: suppliers.id, code: suppliers.code })
+  const [imiVendor] = await db
+    .select({ id: suppliers.id })
     .from(suppliers)
-    .where(eq(suppliers.companyId, 1));
-  const venId: Record<string, number> = Object.fromEntries(venRows.map((v) => [v.code, v.id]));
+    .where(and(eq(suppliers.companyId, 1), eq(suppliers.code, "VEN-IMI")))
+    .limit(1);
 
-  // Beirut Outdoor (OOH) & Iraq TV media channels — starter placeholders.
   await db
     .insert(mediaChannels)
-    .values([
-      { companyId: 1, mediaType: "outdoor", name: "Beirut CBD Billboards", code: "OOH-BEI-CBD", businessUnitId: buId.BEI ?? null, vendorId: venId["VEN-BEI-01"] ?? null },
-      { companyId: 1, mediaType: "outdoor", name: "Airport Road Unipoles", code: "OOH-BEI-APT", businessUnitId: buId.BEI ?? null, vendorId: venId["VEN-BEI-01"] ?? null },
-      { companyId: 1, mediaType: "outdoor", name: "Hamra Digital Screens", code: "OOH-BEI-HAM", businessUnitId: buId.BEI ?? null, vendorId: venId["VEN-BEI-01"] ?? null },
-      { companyId: 1, mediaType: "tv", name: "Iraq TV — Primetime", code: "TV-IRQ-PRIME", businessUnitId: buId.IRQ ?? null, vendorId: venId["VEN-IRQ-01"] ?? null },
-      { companyId: 1, mediaType: "tv", name: "Iraq TV — News Bulletin", code: "TV-IRQ-NEWS", businessUnitId: buId.IRQ ?? null, vendorId: venId["VEN-IRQ-01"] ?? null },
-      { companyId: 1, mediaType: "tv", name: "Iraq TV — Sports", code: "TV-IRQ-SPORT", businessUnitId: buId.IRQ ?? null, vendorId: venId["VEN-IRQ-01"] ?? null },
-    ])
-    .onConflictDoNothing();
-
-  // Salespeople per business unit. Seeded once per BU (table has no unique key).
-  const spRows = await db
-    .select({ buId: salespeople.businessUnitId })
-    .from(salespeople)
-    .where(eq(salespeople.companyId, 1));
-  const haveBu = new Set(spRows.map((r) => r.buId));
-  const spToInsert: { companyId: number; name: string; businessUnitId: number }[] = [];
-  if (buId.UAE && !haveBu.has(buId.UAE)) {
-    for (const name of ["Carla Bou Nader", "Management", "Nicolas Antoine Berbari", "Priyanka Raman", "Shakeel Shaikh"])
-      spToInsert.push({ companyId: 1, name, businessUnitId: buId.UAE });
-  }
-  if (buId.BEI && !haveBu.has(buId.BEI)) spToInsert.push({ companyId: 1, name: "Beirut Management", businessUnitId: buId.BEI });
-  if (buId.IRQ && !haveBu.has(buId.IRQ)) spToInsert.push({ companyId: 1, name: "Iraq Management", businessUnitId: buId.IRQ });
-  if (spToInsert.length) await db.insert(salespeople).values(spToInsert);
-
-  // Link the Shakeel salesperson to his login email so per-user scoping (match
-  // by email) works for the demo salesperson account.
-  await db
-    .update(salespeople)
-    .set({ email: "shakeel@mindsetmedia.ae" })
-    .where(and(eq(salespeople.companyId, 1), eq(salespeople.name, "Shakeel Shaikh")));
-
-  await db
-    .insert(items)
-    .values([
-      { companyId: 1, code: "ITM-0001", name: "Creative Production (per hour)", unitOfMeasure: "hour", unitPriceFils: 250_00, taxCategory: "standard", vatRate: "5" },
-      { companyId: 1, code: "ITM-0002", name: "Campaign Management Fee", unitOfMeasure: "month", unitPriceFils: 5_000_00, taxCategory: "standard", vatRate: "5" },
-    ])
+    .values(ASSETS.map((a) => ({
+      companyId: 1, name: a.name, code: a.code, mediaType: a.mediaType,
+      allowedMedia: JSON.stringify(a.allowed), businessUnitId: imi?.id ?? null, vendorId: imiVendor?.id ?? null,
+    })))
     .onConflictDoNothing();
 
   await db
-    .insert(bankAccounts)
-    .values([
-      { companyId: 1, name: "Emirates NBD — Current", type: "bank", bankName: "Emirates NBD", accountNumber: "1015xxxxxx401", iban: "AE07026xxxxxxxxxx0401", openingBalanceFils: 75_000_00, currency: "AED" },
-      { companyId: 1, name: "USD Account — ADCB", type: "bank", bankName: "ADCB", openingBalanceFils: 0, currency: "USD" },
-      { companyId: 1, name: "Petty Cash", type: "cash", openingBalanceFils: 3_000_00, currency: "AED" },
-    ])
+    .insert(uoms)
+    .values(UOMS.map(([name, media], i) => ({ companyId: 1, name, mediaTypes: media ? JSON.stringify(media) : null, sortOrder: i + 1 })))
     .onConflictDoNothing();
 
   const hash = (p: string) => bcrypt.hashSync(p, 10);

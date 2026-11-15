@@ -56,7 +56,7 @@ const groups: Group[] = [
     { href: "/customers?type=direct_client", label: "Clients", icon: UserRound },
     { href: "/suppliers", label: "Publishers", icon: Building2 },
     { href: "/agency-groups", label: "Agency Groups", icon: Network },
-    { href: "/media-channels", label: "Media Channels", icon: Megaphone },
+    { href: "/media-channels", label: "Assets", icon: Megaphone },
     { href: "/items", label: "Items", icon: Package },
     { href: "/bank-accounts", label: "Bank & Cash", icon: Landmark, financeOnly: true },
   ]},

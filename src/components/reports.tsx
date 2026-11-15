@@ -147,7 +147,7 @@ export function RankTable({
 export const REPORT_TABS: { href: string; label: string }[] = [
   { href: "/reports/revenue-monthly", label: "Monthly" },
   { href: "/reports/revenue-platform", label: "By Platform" },
-  { href: "/reports/revenue-medium", label: "By Station/Medium" },
+  { href: "/reports/revenue-medium", label: "By Asset" },
   { href: "/reports/revenue-sales", label: "Sales vs Target" },
   { href: "/reports/revenue-agency", label: "By Agency" },
   { href: "/reports/revenue-client", label: "By Client" },

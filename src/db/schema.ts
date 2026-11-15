@@ -554,6 +554,9 @@ export const mediaChannels = pgTable(
     name: varchar("name", { length: 160 }).notNull(), // "Gulf News", "Radio 1 FM", "example.com"
     code: varchar("code", { length: 30 }).notNull(),
     businessUnitId: integer("business_unit_id").references((): AnyPgColumn => businessUnits.id),
+    // Media types this asset can be booked on (JSON array, e.g. ["tv","digital"]).
+    // Empty/null = just `mediaType`.
+    allowedMedia: text("allowed_media"),
     // Buy-side vendor (publisher / station / network) this channel is sourced from.
     vendorId: integer("vendor_id").references(() => suppliers.id),
     isActive: boolean("is_active").default(true).notNull(),
@@ -674,6 +677,17 @@ export const bookingOrders = pgTable(
     // Structured CRM links (reports pivot on these; free-text agency/client kept for display).
     agencyAccountId: integer("agency_account_id").references((): AnyPgColumn => customers.id),
     clientAccountId: integer("client_account_id").references((): AnyPgColumn => customers.id),
+    // Asset booked (Sky News Arabia TV, The National Digital…) under the business unit.
+    assetId: integer("asset_id").references((): AnyPgColumn => mediaChannels.id),
+    categoryId: integer("category_id").references((): AnyPgColumn => industryCategories.id),
+    region: varchar("region", { length: 80 }),
+    salesOffice: varchar("sales_office", { length: 80 }),
+    clientBoRef: varchar("client_bo_ref", { length: 80 }), // the agency/client's own BO number
+    // Month the revenue is recognised in (first day of month) — drives reports.
+    revenueMonth: date("revenue_month"),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    periodNote: varchar("period_note", { length: 80 }), // free text when dates are "TBC" etc.
 
     currency: varchar("currency", { length: 3 }).default("AED").notNull(),
     exchangeRate: numeric("exchange_rate", { precision: 18, scale: 8 }).default("1").notNull(),
@@ -778,6 +792,8 @@ export const uoms = pgTable(
       .notNull()
       .references(() => companies.id),
     name: varchar("name", { length: 40 }).notNull(),
+    // Media types this unit applies to (JSON array). Empty/null = all media.
+    mediaTypes: text("media_types"),
     sortOrder: integer("sort_order").default(0).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
   },
@@ -902,5 +918,24 @@ export const industries = pgTable(
   },
   (t) => ({
     industryNameUq: uniqueIndex("industry_name_uq").on(t.companyId, t.name),
+  }),
+);
+
+/* Industry → Category (2-level taxonomy from the client's Industry & Category list). */
+export const industryCategories = pgTable(
+  "industry_categories",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    industryId: integer("industry_id")
+      .notNull()
+      .references(() => industries.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+  },
+  (t) => ({
+    industryCategoryUq: uniqueIndex("industry_category_uq").on(t.industryId, t.name),
   }),
 );

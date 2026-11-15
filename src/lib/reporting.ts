@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  bookingOrders, businessUnits, salespeople, industries, customers, agencyGroups, fxRates, salesTargets,
+  bookingOrders, businessUnits, salespeople, industries, customers, agencyGroups, fxRates, salesTargets, industryCategories,
 } from "@/db/schema";
 
 const COMPANY_ID = 1;
@@ -16,6 +16,7 @@ export type ReportFilters = {
   month?: number | null;
   currency?: string; // reporting currency (default USD)
   salespersonId?: number | null; // scope to one salesperson (Sales role)
+  months?: number[]; // multi-month selection (1-12); overrides `month`
 };
 
 export type BookingRow = {
@@ -35,6 +36,9 @@ export type BookingRow = {
   salesId: number | null;
   salesName: string | null;
   industry: string | null;
+  category: string | null;
+  region: string | null;
+  status: string;
   revenueFils: number; // net revenue (ex-VAT), converted to the reporting currency
   grandFils: number; // incl. VAT, converted
 };
@@ -78,7 +82,7 @@ export async function fetchApprovedBookings(filters: ReportFilters): Promise<{
     : "USD";
   const fx = await loadFxToAed();
 
-  const periodExpr = sql<string>`to_char(coalesce(${bookingOrders.receiptDate}, ${bookingOrders.issueDate}), 'YYYY-MM')`;
+  const periodExpr = sql<string>`to_char(coalesce(${bookingOrders.revenueMonth}, ${bookingOrders.receiptDate}, ${bookingOrders.issueDate}), 'YYYY-MM')`;
 
   const conds: (SQL | undefined)[] = [
     eq(bookingOrders.companyId, COMPANY_ID),
@@ -86,8 +90,10 @@ export async function fetchApprovedBookings(filters: ReportFilters): Promise<{
   ];
   if (filters.buId) conds.push(eq(bookingOrders.businessUnitId, filters.buId));
   if (filters.salespersonId) conds.push(eq(bookingOrders.salespersonId, filters.salespersonId));
-  if (filters.year) conds.push(sql`extract(year from coalesce(${bookingOrders.receiptDate}, ${bookingOrders.issueDate})) = ${filters.year}`);
-  if (filters.month) conds.push(sql`extract(month from coalesce(${bookingOrders.receiptDate}, ${bookingOrders.issueDate})) = ${filters.month}`);
+  if (filters.year) conds.push(sql`extract(year from coalesce(${bookingOrders.revenueMonth}, ${bookingOrders.receiptDate}, ${bookingOrders.issueDate})) = ${filters.year}`);
+  if (filters.months && filters.months.length) {
+    conds.push(inArray(sql<number>`extract(month from coalesce(${bookingOrders.revenueMonth}, ${bookingOrders.receiptDate}, ${bookingOrders.issueDate}))::int`, filters.months));
+  } else if (filters.month) conds.push(sql`extract(month from coalesce(${bookingOrders.revenueMonth}, ${bookingOrders.receiptDate}, ${bookingOrders.issueDate})) = ${filters.month}`);
 
   const raw = await db
     .select({
@@ -105,6 +111,9 @@ export async function fetchApprovedBookings(filters: ReportFilters): Promise<{
       salesId: bookingOrders.salespersonId,
       salesName: salespeople.name,
       industry: industries.name,
+      category: industryCategories.name,
+      region: bookingOrders.region,
+      status: bookingOrders.status,
       netFils: bookingOrders.totalNetFils,
       grandFils: bookingOrders.grandTotalFils,
       currency: bookingOrders.currency,
@@ -114,6 +123,7 @@ export async function fetchApprovedBookings(filters: ReportFilters): Promise<{
     .leftJoin(businessUnits, eq(businessUnits.id, bookingOrders.businessUnitId))
     .leftJoin(salespeople, eq(salespeople.id, bookingOrders.salespersonId))
     .leftJoin(industries, eq(industries.id, bookingOrders.industryId))
+    .leftJoin(industryCategories, eq(industryCategories.id, bookingOrders.categoryId))
     .leftJoin(customers, eq(customers.id, bookingOrders.agencyAccountId))
     .leftJoin(agencyGroups, eq(agencyGroups.id, customers.agencyGroupId))
     .where(and(...conds))
@@ -144,6 +154,9 @@ export async function fetchApprovedBookings(filters: ReportFilters): Promise<{
       salesId: r.salesId,
       salesName: r.salesName,
       industry: r.industry,
+      category: r.category,
+      region: r.region,
+      status: r.status,
       revenueFils: toReporting(r.netFils, boRate),
       grandFils: toReporting(r.grandFils, boRate),
     };

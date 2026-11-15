@@ -2,6 +2,7 @@ import "server-only";
 import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { bookingOrders, businessUnits, salespeople, industries } from "@/db/schema";
+import { DIMENSIONS, MEASURES, buildPivot, displayLabel, parseMonths } from "@/lib/report-dimensions";
 import {
   fetchApprovedBookings, getReportBusinessUnits, getSalesTargetsByPerson, rankBy,
   MONTHS, type BookingRow,
@@ -37,7 +38,9 @@ export type ReportParams = {
   currency?: string;
   status?: string;
   q?: string;
-  dim?: string;
+  dim?: string; // custom report: row dimension
+  col?: string; // custom report: column dimension ("none" = simple list)
+  months?: string; // custom report: comma-separated month numbers
   measure?: string;
   salespersonId?: number | null; // scope to one salesperson (Sales role exports)
 };
@@ -74,29 +77,10 @@ function rankSection(rows: BookingRow[], keyFn: (r: BookingRow) => string | null
   };
 }
 
-/* Custom-report dimensions/measures (kept in sync with the custom page). */
-const DIMENSIONS: Record<string, { label: string; fn: (r: BookingRow) => string | null | undefined; empty: string }> = {
-  bu: { label: "Business Unit", fn: (r) => r.buName, empty: "Unassigned" },
-  platform: { label: "Platform (Media)", fn: (r) => r.medium, empty: "Unspecified" },
-  medium: { label: "Station / Medium", fn: (r) => r.publisher, empty: "Unspecified" },
-  agency: { label: "Agency", fn: (r) => r.agency, empty: "Direct" },
-  client: { label: "Client", fn: (r) => r.client, empty: "Unspecified" },
-  agencyGroup: { label: "Agency Group", fn: (r) => r.agencyGroup, empty: "Unaffiliated" },
-  salesperson: { label: "Salesperson", fn: (r) => r.salesName, empty: "Unassigned" },
-  industry: { label: "Industry", fn: (r) => r.industry, empty: "Unspecified" },
-  campaign: { label: "Campaign", fn: (r) => r.campaign, empty: "Unspecified" },
-  month: { label: "Month", fn: (r) => r.period, empty: "—" },
-};
-const MEASURES: Record<string, { label: string; fn: (r: BookingRow) => number; money: boolean }> = {
-  net: { label: "Net revenue", fn: (r) => r.revenueFils, money: true },
-  grand: { label: "Gross incl. VAT", fn: (r) => r.grandFils, money: true },
-  count: { label: "Bookings", fn: () => 1, money: false },
-};
-
 const REPORT_TITLES: Record<string, string> = {
   monthly: "Monthly Revenue",
   platform: "Revenue Share by Platform",
-  medium: "Revenue by Station / Medium",
+  medium: "Revenue by Asset",
   sales: "Revenue by Sales — Target vs Achievement",
   agency: "Revenue by Agency",
   client: "Revenue by Client",
@@ -120,7 +104,9 @@ export async function buildReportDataset(p: ReportParams): Promise<ReportDataset
 
   const spId = p.salespersonId ?? null;
   const meta = await metaLines(buId, year, month, currency);
-  const { rows } = await fetchApprovedBookings({ buId, year, month, currency, salespersonId: spId });
+  const months = key === "custom" ? parseMonths(p.months) : [];
+  if (months.length) meta[1] = `Period: ${months.map((m) => MONTHS[m - 1]).join(", ")} ${year}`;
+  const { rows } = await fetchApprovedBookings({ buId, year, month, currency, salespersonId: spId, months });
 
   let sections: Section[] = [];
 
@@ -138,7 +124,7 @@ export async function buildReportDataset(p: ReportParams): Promise<ReportDataset
   } else if (key === "platform") {
     sections = [rankSection(rows, (r) => r.medium, "Platform", "Unspecified")];
   } else if (key === "medium") {
-    sections = [rankSection(rows, (r) => r.publisher, "Station / Medium", "Unspecified")];
+    sections = [rankSection(rows, (r) => r.publisher, "Asset", "Unspecified")];
   } else if (key === "agency") {
     sections = [rankSection(rows, (r) => r.agency, "Agency", "Direct (no agency)")];
   } else if (key === "client") {
@@ -159,16 +145,20 @@ export async function buildReportDataset(p: ReportParams): Promise<ReportDataset
       { heading: "Top 10 Campaigns", ...topSection(rows, (r) => r.campaign, "Campaign", "Unspecified") },
     ];
   } else if (key === "custom") {
-    const dim = DIMENSIONS[p.dim ?? "client"] ?? DIMENSIONS.client;
+    const rowDim = DIMENSIONS[p.dim ?? "asset"] ?? DIMENSIONS.asset;
+    const colDim = p.col && p.col !== "none" && DIMENSIONS[p.col] && DIMENSIONS[p.col] !== rowDim ? DIMENSIONS[p.col] : null;
     const measure = MEASURES[p.measure ?? "net"] ?? MEASURES.net;
-    const ranked = rankBy(rows, dim.fn, measure.fn, dim.empty);
-    const total = ranked.reduce((s, r) => s + r.value, 0);
-    meta.push(`Group by: ${dim.label}  ·  Measure: ${measure.label}`);
+    const pv = buildPivot(rows, rowDim, colDim, measure);
+    const val = (v: number) => (measure.money ? M(v) : v);
+    meta.push(`Rows: ${rowDim.label}${colDim ? `  ·  Columns: ${colDim.label}` : ""}  ·  Measure: ${measure.label}`);
+    const nCols = pv.colLabels.length;
+    const numeric = Array.from({ length: nCols + 2 }, (_, k) => k + 1);
     sections = [{
-      columns: [dim.label, "Bookings", measure.label + (measure.money ? "" : " (count)"), "Share %"],
-      rows: ranked.map((r) => [r.label, r.count, measure.money ? M(r.value) : r.value, pct(r.value, total)]),
-      totals: ["Total", ranked.reduce((s, r) => s + r.count, 0), measure.money ? M(total) : total, 100],
-      numericCols: [1, 2, 3], moneyCols: measure.money ? [2] : [],
+      columns: [rowDim.label, ...pv.colLabels.map((c) => displayLabel(colDim!, c)), "Total", "Share %"],
+      rows: pv.rowLabels.map((r) => [displayLabel(rowDim, r), ...pv.colLabels.map((c) => val(pv.cell(r, c))), val(pv.rowTotal(r)), pct(pv.rowTotal(r), pv.grand)]),
+      totals: ["Grand total", ...pv.colLabels.map((c) => val(pv.colTotal(c))), val(pv.grand), 100],
+      numericCols: numeric,
+      moneyCols: measure.money ? numeric.slice(0, -1) : [],
     }];
   } else if (key === "sales") {
     sections = [await salesSection(rows, year, month, currency, buId, spId)];
@@ -253,7 +243,7 @@ async function salesSection(rows: BookingRow[], year: number, month: number | nu
 async function buildTrackerDataset(p: ReportParams, buId: number | null, year: number, month: number | null): Promise<ReportDataset> {
   const status = p.status && p.status !== "all" ? p.status : null;
   const q = p.q?.trim() || "";
-  const periodExpr = sql`coalesce(${bookingOrders.receiptDate}, ${bookingOrders.issueDate})`;
+  const periodExpr = sql`coalesce(${bookingOrders.revenueMonth}, ${bookingOrders.receiptDate}, ${bookingOrders.issueDate})`;
   const conds: (SQL | undefined)[] = [eq(bookingOrders.companyId, COMPANY_ID)];
   if (buId) conds.push(eq(bookingOrders.businessUnitId, buId));
   if (status) conds.push(eq(bookingOrders.status, status as typeof bookingOrders.$inferSelect.status));
@@ -263,7 +253,7 @@ async function buildTrackerDataset(p: ReportParams, buId: number | null, year: n
 
   const raw = await db
     .select({
-      number: bookingOrders.number, issueDate: bookingOrders.issueDate, receiptDate: bookingOrders.receiptDate,
+      number: bookingOrders.number, issueDate: bookingOrders.issueDate, receiptDate: bookingOrders.receiptDate, revenueMonth: bookingOrders.revenueMonth, clientBoRef: bookingOrders.clientBoRef,
       status: bookingOrders.status, toName: bookingOrders.toName, agency: bookingOrders.agency, client: bookingOrders.client,
       medium: bookingOrders.medium, currency: bookingOrders.currency, totalNetFils: bookingOrders.totalNetFils,
       grandTotalFils: bookingOrders.grandTotalFils, buName: businessUnits.name, salesName: salespeople.name, industry: industries.name,
@@ -277,12 +267,12 @@ async function buildTrackerDataset(p: ReportParams, buId: number | null, year: n
     .limit(2000);
 
   const section: Section = {
-    columns: ["BO No.", "Period", "Unit", "Medium", "Agency", "Client", "Salesperson", "Media", "Cur", "Net", "Grand Total", "Status"],
+    columns: ["BO No.", "Client BO #", "Month", "Unit", "Asset", "Agency", "Client", "Salesperson", "Media", "Cur", "Net", "Grand Total", "Status"],
     rows: raw.map((r) => [
-      r.number, r.receiptDate ?? r.issueDate, r.buName ?? "—", r.toName ?? "—", r.agency ?? "—", r.client ?? "—",
+      r.number, r.clientBoRef ?? "—", (r.revenueMonth ?? r.receiptDate ?? r.issueDate).slice(0, 7), r.buName ?? "—", r.toName ?? "—", r.agency ?? "—", r.client ?? "—",
       r.salesName ?? "—", r.medium ?? "—", r.currency, M(r.totalNetFils), M(r.grandTotalFils), STATUS_LABEL[r.status] ?? r.status,
     ]),
-    numericCols: [9, 10], moneyCols: [9, 10],
+    numericCols: [10, 11], moneyCols: [10, 11],
   };
   const buName = buId ? (await getReportBusinessUnits()).find((u) => u.id === buId)?.name ?? `Unit ${buId}` : "All units";
   const period = month ? `${MONTHS[month - 1]} ${year}` : `${year}`;

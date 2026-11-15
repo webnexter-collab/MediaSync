@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { bookingOrders, bookingOrderLines, businessUnits, salespeople, industries } from "@/db/schema";
+import { bookingOrders, bookingOrderLines, businessUnits, salespeople, industries, industryCategories } from "@/db/schema";
+import { parseSchedule, scheduleSummary, specLabels } from "@/lib/schedule";
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
 import { formatFils } from "@/lib/money";
 import {
@@ -23,15 +24,6 @@ const STATUS_LABEL: Record<string, string> = {
   draft: "Draft", pending_approval: "Pending approval", approved: "Approved", sent: "Sent", confirmed: "Confirmed", invoiced: "Invoiced", cancelled: "Cancelled",
 };
 
-function parseDays(json: string | null): number[] {
-  try {
-    const a = JSON.parse(json ?? "[]");
-    return Array.isArray(a) ? a.filter((n): n is number => typeof n === "number") : [];
-  } catch {
-    return [];
-  }
-}
-
 export default async function BookingOrderView({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const boId = Number(id);
@@ -43,6 +35,9 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
   const session = await getSession();
   const mayApprove = canApprove(session?.role);
 
+  const [catRow] = bo.categoryId
+    ? await db.select({ name: industryCategories.name }).from(industryCategories).where(eq(industryCategories.id, bo.categoryId)).limit(1)
+    : [];
   const [buRow, spRow, indRow] = await Promise.all([
     bo.businessUnitId ? db.select({ name: businessUnits.name }).from(businessUnits).where(eq(businessUnits.id, bo.businessUnitId)).limit(1) : Promise.resolve([]),
     bo.salespersonId ? db.select({ name: salespeople.name }).from(salespeople).where(eq(salespeople.id, bo.salespersonId)).limit(1) : Promise.resolve([]),
@@ -53,10 +48,13 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
   const indName = indRow[0]?.name ?? null;
 
   const cur = (f: number) => `${bo.currency} ${formatFils(f, { withSymbol: false })}`;
+  const period = bo.startDate || bo.endDate ? [bo.startDate, bo.endDate].filter(Boolean).join(" → ") : bo.periodNote;
   const parties: [string, string | null][] = [
-    ["Business Unit", buName], ["Medium", bo.toName], ["Agency", bo.agency],
-    ["Client", bo.client], ["Salesperson", spName], ["Industry", indName],
-    ["Campaign", bo.campaign],
+    ["Business Unit", buName], ["Asset", bo.toName], ["Media", bo.medium],
+    ["Agency", bo.agency], ["Client", bo.client], ["Salesperson", spName],
+    ["Industry", indName], ["Category", catRow?.name ?? null], ["Campaign", bo.campaign],
+    ["Client BO #", bo.clientBoRef], ["Revenue month", (bo.revenueMonth ?? "").slice(0, 7) || null], ["BO period", period ?? null],
+    ["Region", bo.region], ["Sales Office", bo.salesOffice], ["Date BO received", bo.receiptDate],
   ];
 
   return (
@@ -114,8 +112,6 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
           ))}
           <div><div className="text-[10px] uppercase tracking-wide text-muted">Currency</div><div className="mt-0.5 text-sm text-ink">{bo.currency}</div></div>
           <div><div className="text-[10px] uppercase tracking-wide text-muted">Payment Terms</div><div className="mt-0.5 text-sm text-ink">{bo.paymentTerms || "—"}</div></div>
-          <div><div className="text-[10px] uppercase tracking-wide text-muted">Media</div><div className="mt-0.5 text-sm text-ink">{bo.medium || "—"}</div></div>
-          <div><div className="text-[10px] uppercase tracking-wide text-muted">Receipt date</div><div className="mt-0.5 text-sm text-ink">{bo.receiptDate || "—"}</div></div>
         </div>
       </Card>
 
@@ -139,7 +135,13 @@ export default async function BookingOrderView({ params }: { params: Promise<{ i
                 <tr key={l.id} className="border-b border-line align-top last:border-0">
                   <td className="px-4 py-3 tnum text-muted">{String(i + 1).padStart(2, "0")}</td>
                   <td className="px-4 py-3"><div className="font-medium text-ink">{l.platform || "—"}</div><Badge tone="neutral">{MEDIA_LABEL[l.mediaType] ?? l.mediaType}</Badge></td>
-                  <td className="px-4 py-3"><div className="font-medium text-ink">{l.particulars || "—"}</div>{l.brandingDetails && <div className="mt-1 max-w-md text-xs text-muted">{l.brandingDetails}</div>}{l.period && <div className="mt-1 text-xs text-muted">{l.period}</div>}{(() => { const d = parseDays(l.annexure); return d.length > 0 ? <div className="mt-1 text-xs text-muted">Schedule ({d.length}d): {d.join(", ")}</div> : null; })()}</td>
+                  <td className="px-4 py-3"><div className="font-medium text-ink">{l.particulars || "—"}</div>{l.brandingDetails && <div className="mt-1 max-w-md text-xs text-muted">{l.brandingDetails}</div>}{l.period && <div className="mt-1 text-xs text-muted">{l.period}</div>}{(() => {
+                    const sch = parseSchedule(l.annexure, l.mediaType);
+                    const lab = specLabels(l.mediaType);
+                    const spec = [sch.segment && `${lab.segment}: ${sch.segment}`, sch.position && `${lab.position}: ${sch.position}`, sch.duration && `${lab.duration}: ${sch.duration}`].filter(Boolean).join(" · ");
+                    const sum = scheduleSummary(sch);
+                    return sum || spec ? <div className="mt-1 text-xs text-muted">Schedule — {[sum, spec].filter(Boolean).join(" · ")}</div> : null;
+                  })()}</td>
                   <td className="px-4 py-3 text-right tnum">{Number(l.quantity)}</td>
                   <td className="px-4 py-3">{l.uom || "—"}</td>
                   <td className="px-4 py-3 text-right tnum">{formatFils(l.unitGrossFils, { withSymbol: false })}</td>

@@ -108,12 +108,17 @@ type MediaChannelRow = typeof import("@/db/schema").mediaChannels.$inferSelect;
 export function mediaChannelFields(
   row?: MediaChannelRow,
   vendors: { value: string; label: string }[] = [],
+  businessUnits: { value: string; label: string }[] = [],
 ): FieldDef[] {
+  let allowed = "";
+  try { const v = JSON.parse(row?.allowedMedia ?? "[]"); if (Array.isArray(v)) allowed = v.join(", "); } catch { /* ignore */ }
   return [
-    { name: "name", label: "Channel name", required: true, half: true, placeholder: "Gulf News — Main Edition", defaultValue: row?.name },
-    { name: "code", label: "Code", required: true, half: true, placeholder: "PR-GN-MAIN", defaultValue: row?.code },
-    { name: "mediaType", label: "Media type", type: "select", half: true, options: MEDIA_TYPE_OPTIONS, defaultValue: row?.mediaType ?? "print" },
-    { name: "vendorId", label: "Source publisher", type: "select", half: true, options: [{ value: "", label: "— None —" }, ...vendors], defaultValue: row?.vendorId != null ? String(row.vendorId) : "", hint: "Media owner / station / network" },
+    { name: "name", label: "Asset name", required: true, half: true, placeholder: "Sky News Arabia TV", defaultValue: row?.name },
+    { name: "code", label: "Code", required: true, half: true, placeholder: "AST-SNA-TV", defaultValue: row?.code },
+    { name: "businessUnitId", label: "Business Unit", type: "select", half: true, options: [{ value: "", label: "— None —" }, ...businessUnits], defaultValue: row?.businessUnitId != null ? String(row.businessUnitId) : "", hint: "The unit that owns this asset" },
+    { name: "mediaType", label: "Main media", type: "select", half: true, options: MEDIA_TYPE_OPTIONS, defaultValue: row?.mediaType ?? "print" },
+    { name: "allowedMedia", label: "Bookable as", half: true, placeholder: "e.g. tv, digital", defaultValue: allowed, hint: "Comma-separated: print, digital, radio, tv, website, outdoor. The Booking Order only offers these for the asset." },
+    { name: "vendorId", label: "Media owner (publisher)", type: "select", half: true, options: [{ value: "", label: "— None —" }, ...vendors], defaultValue: row?.vendorId != null ? String(row.vendorId) : "" },
     { name: "notes", label: "Notes", type: "textarea", defaultValue: row?.notes ?? undefined },
     { name: "isActive", label: "Active", type: "toggle", defaultValue: row ? row.isActive : true },
   ];

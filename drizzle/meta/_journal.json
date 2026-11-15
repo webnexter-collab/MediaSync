@@ -92,6 +92,13 @@
       "when": 1792139225592,
       "tag": "0012_salesperson_role",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794738016100,
+      "tag": "0013_assets_categories_bo_fields",
+      "breakpoints": true
     }
   ]
 }

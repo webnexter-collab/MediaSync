@@ -3,6 +3,7 @@ import { writeFileSync } from "node:fs";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { bookingOrders, bookingOrderLines, companies } from "@/db/schema";
+import { parseSchedule } from "@/lib/schedule";
 import { renderBookingOrderPdf, type BookingOrderPdfData } from "@/components/booking-order-pdf";
 
 const COMPANY_ID = 1;
@@ -34,7 +35,8 @@ async function main() {
       mediaLabel: MEDIA_LABEL[l.mediaType] ?? l.mediaType, platform: l.platform, particulars: l.particulars,
       brandingDetails: l.brandingDetails, period: l.period, quantity: String(Number(l.quantity)), uom: l.uom,
       unitGrossFils: l.unitGrossFils, discountPct: String(l.discountPct), lineNetFils: l.lineNetFils,
-      days: (() => { try { const a = JSON.parse(l.annexure ?? "[]"); return Array.isArray(a) ? a.filter((n: unknown): n is number => typeof n === "number") : []; } catch { return []; } })(),
+      mediaType: l.mediaType,
+      schedule: parseSchedule(l.annexure, l.mediaType),
     })),
   };
   const buf = await renderBookingOrderPdf(data);

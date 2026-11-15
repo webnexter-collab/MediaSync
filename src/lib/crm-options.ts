@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { customers, currencies, suppliers, mediaChannels, rateCards, rateCardItems, uoms, businessUnits, salespeople, industries, agencyGroups } from "@/db/schema";
+import { customers, currencies, suppliers, mediaChannels, rateCards, rateCardItems, uoms, businessUnits, salespeople, industries, agencyGroups, industryCategories } from "@/db/schema";
 import type { AccountFormOptions } from "@/lib/form-fields";
 
 const COMPANY_ID = 1;
@@ -19,7 +19,10 @@ export async function getBookingOrderFormOptions() {
       db.select({ code: currencies.code, name: currencies.name })
         .from(currencies).where(and(eq(currencies.companyId, COMPANY_ID), eq(currencies.isActive, true)))
         .orderBy(asc(currencies.code)),
-      db.select({ id: mediaChannels.id, name: mediaChannels.name, mediaType: mediaChannels.mediaType })
+      db.select({
+        id: mediaChannels.id, name: mediaChannels.name, mediaType: mediaChannels.mediaType,
+        allowedMedia: mediaChannels.allowedMedia, businessUnitId: mediaChannels.businessUnitId, vendorId: mediaChannels.vendorId,
+      })
         .from(mediaChannels).where(and(eq(mediaChannels.companyId, COMPANY_ID), eq(mediaChannels.isActive, true)))
         .orderBy(asc(mediaChannels.name)),
       db.select({ id: businessUnits.id, name: businessUnits.name, code: businessUnits.code, defaultCurrency: businessUnits.defaultCurrency })
@@ -33,8 +36,27 @@ export async function getBookingOrderFormOptions() {
         .orderBy(asc(industries.name)),
     ]);
 
+    const catRows = await db
+      .select({ id: industryCategories.id, name: industryCategories.name, industryId: industryCategories.industryId })
+      .from(industryCategories)
+      .where(and(eq(industryCategories.companyId, COMPANY_ID), eq(industryCategories.isActive, true)))
+      .orderBy(asc(industryCategories.name));
+
+    const parseList = (json: string | null): string[] => {
+      try { const v = JSON.parse(json ?? "[]"); return Array.isArray(v) ? v.map(String) : []; } catch { return []; }
+    };
+    // Assets = media channels, each with the media types it can be booked on.
+    const assets = channels.map((c) => {
+      const allowed = parseList(c.allowedMedia);
+      return {
+        id: c.id, name: c.name, mediaType: c.mediaType as string,
+        allowedMedia: allowed.length ? allowed : [c.mediaType as string],
+        businessUnitId: c.businessUnitId, vendorId: c.vendorId,
+      };
+    });
+
     const uomRows = await db
-      .select({ name: uoms.name })
+      .select({ name: uoms.name, mediaTypes: uoms.mediaTypes })
       .from(uoms)
       .where(and(eq(uoms.companyId, COMPANY_ID), eq(uoms.isActive, true)))
       .orderBy(asc(uoms.sortOrder), asc(uoms.name));
@@ -71,6 +93,10 @@ export async function getBookingOrderFormOptions() {
       channels,
       rateItems,
       uoms: uomRows.map((u) => u.name),
+      // UOMs with the media types they apply to (empty = all media).
+      uomOptions: uomRows.map((u) => ({ name: u.name, mediaTypes: parseList(u.mediaTypes) })),
+      assets,
+      categories: catRows,
       businessUnits: units,
       salespeople: sales,
       industries: inds,
@@ -79,6 +105,9 @@ export async function getBookingOrderFormOptions() {
     return {
       vendors: [], accounts: [], currencies: [{ code: "AED", name: "UAE Dirham" }],
       channels: [], rateItems: [], uoms: [] as string[],
+      uomOptions: [] as { name: string; mediaTypes: string[] }[],
+      assets: [] as { id: number; name: string; mediaType: string; allowedMedia: string[]; businessUnitId: number | null; vendorId: number | null }[],
+      categories: [] as { id: number; name: string; industryId: number }[],
       businessUnits: [] as { id: number; name: string; code: string; defaultCurrency: string }[],
       salespeople: [] as { id: number; name: string; businessUnitId: number | null }[],
       industries: [] as { id: number; name: string }[],

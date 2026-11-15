@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const params: ReportParams = {
     report: g("report") ?? "monthly",
     bu: g("bu"), year: g("year"), month: g("month"), currency: g("currency"),
-    status: g("status"), q: g("q"), dim: g("dim"), measure: g("measure"),
+    status: g("status"), q: g("q"), dim: g("dim"), col: g("col"), months: g("months"), measure: g("measure"),
   };
 
   // A Sales (salesperson) user may only export their own target-vs-sales report.
